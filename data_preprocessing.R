@@ -8,24 +8,25 @@ DtF=read.csv('../../Data/NCDC/Florida/Florida_hourly_NCDC.csv',
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
 
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
-DtF %>% 
-  arrange(Time) %>% 
-  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
-  group_by(TimeLag_min) %>% 
-  tally %>% 
-  rename(Num_lag=n) %>% 
-  kable
+
+# DtF %>%
+#   arrange(Time) %>%
+#   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+#   group_by(TimeLag_min) %>%
+#   tally %>%
+#   rename(Num_lag=n) %>%
+#   kable
 
 interval = 60
-DtF=Regular_Time(DtF,interval)
-
-DtF %>% 
-  arrange(Time) %>% 
-  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
-  group_by(TimeLag_min) %>% 
-  tally %>% 
-  rename(Num_lag=n) %>% 
-  kable
+# DtF=Regular_Time(DtF,interval)
+# 
+# DtF %>% 
+#   arrange(Time) %>% 
+#   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
+#   group_by(TimeLag_min) %>% 
+#   tally %>% 
+#   rename(Num_lag=n) %>% 
+#   kable
 
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #dt:       data of time and rain
@@ -91,5 +92,7 @@ DtF %>%
             TotalRain=round(sum(Rain),3),
             Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
             Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
-  mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalRain>0) %>%  write.table('./Rain_Drought_Sep.csv')
+  #mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
+  mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
+  filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE)
+  #filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE)
