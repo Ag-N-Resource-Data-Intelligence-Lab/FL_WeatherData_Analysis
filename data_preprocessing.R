@@ -1,32 +1,57 @@
-Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr')
+Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis')
 lapply(Libs,library, character.only = TRUE)
+setwd('./')
+
+test_dp <- read.csv("https://www.dropbox.com/s/0o8hrb4o4ccwaxz/Florida_hourly_NCDC.csv?dl=1",
+                   sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>% 
+  mutate(Time=ymd_hms(Time)) %>% 
+  rename(Rain = Precip_mm) %>%
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
+
 
 DtF=read.csv('../../Data/NCDC/Florida/Florida_hourly_NCDC.csv',
-             sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>%
+             sep=',',header=T,stringsAsFactors = F) %>%
   mutate(Time=ymd_hms(Time)) %>% 
   rename(Rain = Precip_mm) %>%
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
 
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
 
-# DtF %>%
-#   arrange(Time) %>%
-#   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
-#   group_by(TimeLag_min) %>%
-#   tally %>%
-#   rename(Num_lag=n) %>%
-#   kable
+DtF %>%
+  arrange(Time) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(TimeLag_min) %>%
+  tally %>%
+  rename(Num_lag=n) %>%
+  kable
+  
+df<-DtF %>%
+  arrange(Time) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(TimeLag_min) %>%
+  filter(TimeLag_min == 180) %>%
+  mutate(Years=year(Time))
+  # tally %>%
+  # rename(Num_lag=n)
+
+DtF_clean <- anti_join(DtF,df,by = 'Time')
+
 
 interval = 60
-# DtF=Regular_Time(DtF,interval)
-# 
-# DtF %>% 
-#   arrange(Time) %>% 
-#   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
-#   group_by(TimeLag_min) %>% 
-#   tally %>% 
-#   rename(Num_lag=n) %>% 
-#   kable
+DtF_clean=Regular_Time(DtF_clean,interval)
+
+DtF_clean %>% 
+  group_by(Time,Location) %>%
+  summarise_all(.,funs(mean(.,na.rm = TRUE))) %>% 
+  ungroup() -> DtF_clean_zero
+
+DtF_clean_zero %>%
+  arrange(Time) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(TimeLag_min) %>%
+  tally %>%
+  rename(Num_lag=n) %>%
+  kable
 
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #dt:       data of time and rain
@@ -94,5 +119,5 @@ DtF %>%
             Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
   #mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
   mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE)
-  #filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE)
+  filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
+  #filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE,sep = ',')
