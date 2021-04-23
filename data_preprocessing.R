@@ -5,20 +5,27 @@
 #install.packages('RcppRoll')
 #install.packages('wrapr')
 #install.packages('sqldf')
-
+install.packages('repmis')
+library(repmis)
 Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','data.table')
 lapply(Libs,library, character.only = TRUE)
 
 DtF=read.csv('C:/Users/Chi Zhang/Desktop/JAX.csv', sep=',',header=T,stringsAsFactors = F)[,-1] %>%
   mutate(Time=ymd_hms(Time))
 
-# DtF %>% 
-#   arrange(Time) %>% 
-#   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
-#   group_by(TimeLag_min) %>% 
-#   tally %>% 
-#   rename(Num_lag=n)%>%
-#   view()
+
+# filename = 'Rain.csv'
+# mykey = '4cs5he2g7uzh4mu'
+# test_dp = source_DropboxData(filename, key = mykey, sep=",", header=TRUE)
+
+
+DtF %>%
+  arrange(Time) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(TimeLag_min) %>%
+  tally %>%
+  rename(Num_lag=n)%>%
+  view()
 
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
 interval= 60
@@ -104,8 +111,9 @@ DtF %>%
             Max_Intensity=max(Precip_mm), # Maximium Precip_mm intensity based on time interval
             Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
   mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalPrecip_mm>0) %>%
-  write.table(.,'D:\\FAWN_data\\FL_WeatherData_Analysis\\Rain.csv', row.names = FALSE)
+  #filter(TotalPrecip_mm>0) %>%
+  filter(TotalPrecip_mm == 0) %>%
+  write.table(.,'D:\\FAWN_data\\FL_WeatherData_Analysis\\drought.csv', row.names = FALSE, sep = ",")
   
 
 
