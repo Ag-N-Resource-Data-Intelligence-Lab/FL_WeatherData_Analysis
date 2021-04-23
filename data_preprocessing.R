@@ -36,6 +36,14 @@ df<-DtF %>%
 # tally %>%
 # rename(Num_lag=n)
 
+# find the time where the gap is larger than 60 min (exclude 180 min) 
+df_gap<-DtF %>%
+  arrange(Time) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(TimeLag_min) %>%
+  filter(TimeLag_min > 60 & TimeLag_min != 180) %>%
+  mutate(Years=year(Time))
+
 # remove these timestamps from raw data
 DtF_clean <- anti_join(DtF,df,by = 'Time')
 
@@ -43,13 +51,14 @@ DtF_clean <- anti_join(DtF,df,by = 'Time')
 interval = 60
 DtF_clean=Regular_Time(DtF_clean,interval)
 
+# remove 0 time interval
 DtF_clean %>% 
   group_by(Time,Location) %>%
   summarise(Rain=max(Rain),Pressure_hPa=mean(Pressure_hPa,na.rm=TRUE),Temp_C=mean(Temp_C,na.rm=TRUE),
             DewPt_C=mean(DewPt_C,na.rm=TRUE),RH=mean(RH,na.rm=TRUE),Wind_SP_m_s=mean(Wind_SP_m_s,na.rm=TRUE)) %>% 
-  ungroup() -> DtF_clean_zero
+  ungroup() -> DtF_rm_zero
 
-DtF_clean_zero %>%
+DtF_rm_zero %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
   group_by(TimeLag_min) %>%
