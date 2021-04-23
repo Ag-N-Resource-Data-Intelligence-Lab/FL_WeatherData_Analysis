@@ -2,11 +2,12 @@ Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis
 lapply(Libs,library, character.only = TRUE)
 setwd('./')
 
-test_dp <- read.csv("https://www.dropbox.com/s/0o8hrb4o4ccwaxz/Florida_hourly_NCDC.csv?dl=1",
-                   sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>% 
-  mutate(Time=ymd_hms(Time)) %>% 
-  rename(Rain = Precip_mm) %>%
-  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
+# read table via dropbox link
+# test_dp <- read.csv("https://www.dropbox.com/s/0o8hrb4o4ccwaxz/Florida_hourly_NCDC.csv?dl=1",
+#                     sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>% 
+#   mutate(Time=ymd_hms(Time)) %>% 
+#   rename(Rain = Precip_mm) %>%
+#   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
 
 
 DtF=read.csv('../../Data/NCDC/Florida/Florida_hourly_NCDC.csv',
@@ -24,16 +25,18 @@ DtF %>%
   tally %>%
   rename(Num_lag=n) %>%
   kable
-  
+
+# find the time where the gap is 180 min 
 df<-DtF %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
   group_by(TimeLag_min) %>%
   filter(TimeLag_min == 180) %>%
   mutate(Years=year(Time))
-  # tally %>%
-  # rename(Num_lag=n)
+# tally %>%
+# rename(Num_lag=n)
 
+# remove these timestamps from raw data
 DtF_clean <- anti_join(DtF,df,by = 'Time')
 
 
@@ -42,7 +45,8 @@ DtF_clean=Regular_Time(DtF_clean,interval)
 
 DtF_clean %>% 
   group_by(Time,Location) %>%
-  summarise_all(.,funs(mean(.,na.rm = TRUE))) %>% 
+  summarise(Rain=max(Rain),Pressure_hPa=mean(Pressure_hPa,na.rm=TRUE),Temp_C=mean(Temp_C,na.rm=TRUE),
+            DewPt_C=mean(DewPt_C,na.rm=TRUE),RH=mean(RH,na.rm=TRUE),Wind_SP_m_s=mean(Wind_SP_m_s,na.rm=TRUE)) %>% 
   ungroup() -> DtF_clean_zero
 
 DtF_clean_zero %>%
@@ -120,4 +124,4 @@ DtF %>%
   #mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
   mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
   filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
-  #filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE,sep = ',')
+#filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE,sep = ',')
