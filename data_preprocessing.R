@@ -3,9 +3,9 @@ lapply(Libs,library, character.only = TRUE)
 setwd('./')
 
 # read table via dropbox link
-# test_dp <- read.csv("https://www.dropbox.com/s/0o8hrb4o4ccwaxz/Florida_hourly_NCDC.csv?dl=1",
-#                     sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>% 
-#   mutate(Time=ymd_hms(Time)) %>% 
+# test_dp <- read.csv("https://www.dropbox.com/s/10qbo3spd4r7x1s/Florida_hourly_NCDC.csv?dl=1",
+#                     sep=',',header=T,stringsAsFactors = F)[c('Time','Location','Precip_mm')] %>%
+#   mutate(Time=ymd_hms(Time)) %>%
 #   rename(Rain = Precip_mm) %>%
 #   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
 
