@@ -18,6 +18,7 @@ DtF=read.csv('../../Data/NCDC/Florida/Florida_hourly_NCDC.csv',
 
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
 
+# data clean------------------------------------------------------------------------------------------------
 DtF %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
@@ -66,6 +67,7 @@ DtF_rm_zero %>%
   rename(Num_lag=n) %>%
   kable
 
+# separate drought and rain events------------------------------------------------------------------  
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #dt:       data of time and rain
   #T_intv:   Time interval of the time series (mins)
@@ -120,7 +122,7 @@ Precip_Evt_Sep= function(dt,T_intv,IntE_P)
 }
 
 IntE_P = 4
-
+# rain events
 DtF %>% 
   Precip_Evt_Sep(.,interval,IntE_P) %>% 
   filter(Evt_lab>0) %>% 
@@ -130,7 +132,38 @@ DtF %>%
             TotalRain=round(sum(Rain),3),
             Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
             Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
-  #mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
+  mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
+  filter(TotalRain>0) -> DtF_sep_rain
+
+  write.table(DtF_sep_rain, './Rain_Evt.csv',row.names = FALSE,sep = ',')
+  
+# drought events 
+DtF %>% 
+  Precip_Evt_Sep(.,interval,IntE_P) %>% 
+  filter(Evt_lab>0) %>% 
+  group_by(Evt_lab) %>% 
+  summarise(Start=min(Time),
+            End=max(Time),
+            TotalRain=round(sum(Rain),3),
+            Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
+            Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
   mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
-#filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE,sep = ',')
+  filter(TotalRain==0) -> DtF_sep_dry
+
+  write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
+  
+
+save.image("sep_drought_rain_evt.RData")
+
+# convert Climate data into pressure events series---------------------------------------------------
+Get_Press_Evt_lab=function(Dt) 
+{
+  Dt %>% 
+    arrange(Time)%>%
+    mutate(Mon=month(Time)) %>% 
+    # Roll average over 24 hours
+    mutate(Press_Evt_lab=ifelse(SLP_chng.av*lag(SLP_chng.av)<=0 & lag(SLP_chng.av)!=0,1,0)) %>% 
+    mutate(Press_Evt_lab=ifelse(is.na(Press_Evt_lab),0,Press_Evt_lab)) %>% 
+    mutate(Press_Evt_lab=cumsum(Press_Evt_lab)) %>% 
+    return
+}
