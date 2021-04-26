@@ -117,14 +117,17 @@ Precip_Evt_Sep= function(dt,T_intv,IntE_P)
     replace_na(list(St_wet=0,St_dry=0)) %>% 
     mutate(Evt_lab=St_wet+St_dry) %>% 
     mutate(Evt_lab=cumsum(Evt_lab)) %>% 
-    select(Time,Rain,Evt_lab) %>% 
+    select(-Cum_Precip_4hr_L,-Cum_Precip_4hr_R) %>% 
     return
 }
 
 IntE_P = 4
 # rain events
 DtF %>% 
-  Precip_Evt_Sep(.,interval,IntE_P) %>% 
+  Precip_Evt_Sep(.,interval,IntE_P) -> DtF_sep
+
+DtF_sep %>% 
+  select(Time,Rain,Evt_lab) %>% 
   filter(Evt_lab>0) %>% 
   group_by(Evt_lab) %>% 
   summarise(Start=min(Time),
@@ -138,8 +141,9 @@ DtF %>%
   write.table(DtF_sep_rain, './Rain_Evt.csv',row.names = FALSE,sep = ',')
   
 # drought events 
-DtF %>% 
-  Precip_Evt_Sep(.,interval,IntE_P) %>% 
+
+DtF_sep %>%
+  select(Time,Rain,Evt_lab) %>% 
   filter(Evt_lab>0) %>% 
   group_by(Evt_lab) %>% 
   summarise(Start=min(Time),
@@ -155,7 +159,8 @@ DtF %>%
 
 save.image("sep_drought_rain_evt.RData")
 
-# convert Climate data into pressure events series---------------------------------------------------
+# pressure events--------------------------------------------------------------------------------------
+# convert Climate data into pressure events series
 Get_Press_Evt_lab=function(Dt) 
 {
   Dt %>% 
@@ -167,3 +172,40 @@ Get_Press_Evt_lab=function(Dt)
     mutate(Press_Evt_lab=cumsum(Press_Evt_lab)) %>% 
     return
 }
+
+Get_Press_Evt=function(Dt)
+{
+  Dt %>% 
+    mutate(Mon=month(Time),
+           Yr=year(Time)) %>% 
+    group_by(Yr,Mon) %>% 
+    summarise(MonT=mean(Temp,na.rm=T))->Dt_MonT
+  
+  Dt %>% 
+    filter(Press_Evt_lab>0,
+           Press_Evt_lab<max(Press_Evt_lab)) %>% 
+    group_by(Press_Evt_lab,Loc) %>% 
+    summarise(St=min(Time),
+              End=max(Time),
+              Dur=as.numeric(max(Time)-min(Time),units='hours')+1,
+              Sum_Press_Delta=sum(SLP_chng.av),
+              Press_NA=sum(is.na(SLP)),
+              Temp_NA=sum(is.na(Temp)),
+              Sum_Precip=sum(Precip,na.rm=T),
+              St_Rain=sum(StR),
+              St_Dry=sum(StD)) %>% 
+    filter(Dur<1000) %>% #take events with more than 10000 hours as gap
+    mutate(Yr=year(St),
+           Mon=month(St)) %>% 
+    left_join(.,Dt_MonT,by=c('Yr'='Yr','Mon'='Mon')) %>% 
+    ungroup %>% 
+    arrange(St) %>% 
+    mutate(Dur_lag1=lag(Dur),
+           Press_Delta_lag1=lag(Sum_Press_Delta)) %>% 
+    
+    return
+}
+
+DtF_sep %>% 
+  Get_Press_Evt_lab(.) %>% 
+  Get_Press_Evt(.) -> Raw_dt
