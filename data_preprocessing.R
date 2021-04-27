@@ -27,28 +27,31 @@ DtF %>%
   rename(Num_lag=n) %>%
   kable
 
+
+
+
 # find the time where the gap is 180 min 
-df<-DtF %>%
+DtF %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
   group_by(TimeLag_min) %>%
   filter(TimeLag_min == 180) %>%
-  mutate(Years=year(Time))
+  mutate(Years=year(Time)) ->df
 # tally %>%
 # rename(Num_lag=n)
 
 # find the time where the gap is larger than 60 min (exclude 180 min) 
-df_gap<-DtF %>%
+DtF %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
   group_by(TimeLag_min) %>%
   filter(TimeLag_min > 60 & TimeLag_min != 180) %>%
-  mutate(Years=year(Time))
+  mutate(Years=year(Time)) -> df_gap
 
 # remove these timestamps from raw data
 DtF_clean <- anti_join(DtF,df,by = 'Time')
 
-
+# regulate time
 interval = 60
 DtF_clean=Regular_Time(DtF_clean,interval)
 
@@ -67,6 +70,15 @@ DtF_rm_zero %>%
   rename(Num_lag=n) %>%
   kable
 
+
+# fill gap and calculate lag pressure lag of 24-hour
+DtF_rm_zero %>% 
+  # spline the pressure
+  mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
+  #Change of Pressure in 24 hours
+  mutate(Pressure_chng.spl=Pressure_hPa.spl-lag(Pressure_hPa.spl,24)) %>% 
+  ungroup->Climate_Dt
+
 # separate drought and rain events------------------------------------------------------------------  
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #dt:       data of time and rain
@@ -83,39 +95,40 @@ Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #The header of time and rain should be
   # Time    Rain
   
-  dt %<>% arrange(Time)
-  
-  # print out the gaps with NA Rain
-  print('Here are all the gaps with NA rain.')
-  dt %>% 
-    filter(is.na(Rain)) %>% 
-    arrange(Time) %>% 
-    mutate(lag=as.numeric(Time-lag(Time),units='mins')) %>% 
-    mutate(Gap_St=ifelse(lag>T_intv | is.na(lag),'Start','NA')) %>% 
-    mutate(Gap_End=ifelse(lead(lag)>T_intv | is.na(lead(lag)),'End','NA')) %>% 
-    mutate(Gap_Lab=(Gap_St=='Start')+(Gap_End=='End')) %>% 
-    mutate(Gap_n=(cumsum(Gap_Lab)+1) %/% 2) %>% 
-    group_by(Gap_n) %>% 
-    summarise(Start=min(Time),
-              End=max(Time)) %>% 
-    mutate(Duration_hr=as.numeric(End-Start,units='hours')) %>% 
-    print
+  # dt %<>% arrange(Time)
+  # 
+  # # print out the gaps with NA Rain
+  # print('Here are all the gaps with NA rain.')
+  # dt %>% 
+  #   filter(is.na(Rain)) %>% 
+  #   arrange(Time) %>% 
+  #   mutate(lag=as.numeric(Time-lag(Time),units='mins')) %>% 
+  #   mutate(Gap_St=ifelse(lag>T_intv | is.na(lag),'Start','NA')) %>% 
+  #   mutate(Gap_End=ifelse(lead(lag)>T_intv | is.na(lead(lag)),'End','NA')) %>% 
+  #   mutate(Gap_Lab=(Gap_St=='Start')+(Gap_End=='End')) %>% 
+  #   mutate(Gap_n=(cumsum(Gap_Lab)+1) %/% 2) %>% 
+  #   group_by(Gap_n) %>% 
+  #   summarise(Start=min(Time),
+  #             End=max(Time)) %>% 
+  #   mutate(Duration_hr=as.numeric(End-Start,units='hours')) %>% 
+  #   print
   
   #generate rain events
   
-  data.frame(
-    Time=c(min(dt$Time)-minutes(T_intv),
-           max(dt$Time)+minutes(T_intv))
-  ) %>% 
-    bind_rows(dt) %>% 
-    Regular_Time(T_intv) %>% 
+  # data.frame(
+  #   Time=c(min(dt$Time)-minutes(T_intv),
+  #          max(dt$Time)+minutes(T_intv))
+  # ) %>% 
+  #   bind_rows(dt) %>% 
+  #   Regular_Time(T_intv) %>%
+  dt %>% 
     replace_na(list(Rain=0)) %>% 
     mutate(Cum_Precip_4hr_L=roll_sum(Rain,IntE_P+1,align='left',fill=0),
            Cum_Precip_4hr_R=roll_sum(Rain,IntE_P+1,align='right',fill=0)) %>% 
-    mutate(St_wet=ifelse(lag(Cum_Precip_4hr_R)==0 & Rain>0,1,0),
-           St_dry=ifelse(lag(Cum_Precip_4hr_L)>0 & Cum_Precip_4hr_L==0 & Rain==0,1,0)) %>% 
-    replace_na(list(St_wet=0,St_dry=0)) %>% 
-    mutate(Evt_lab=St_wet+St_dry) %>% 
+    mutate(StR=ifelse(lag(Cum_Precip_4hr_R)==0 & Rain>0,1,0),
+           StD=ifelse(lag(Cum_Precip_4hr_L)>0 & Cum_Precip_4hr_L==0 & Rain==0,1,0)) %>% 
+    replace_na(list(StR=0,StD=0)) %>% 
+    mutate(Evt_lab=StR+StD) %>% 
     mutate(Evt_lab=cumsum(Evt_lab)) %>% 
     select(-Cum_Precip_4hr_L,-Cum_Precip_4hr_R) %>% 
     return
@@ -123,7 +136,7 @@ Precip_Evt_Sep= function(dt,T_intv,IntE_P)
 
 IntE_P = 4
 # rain events
-DtF %>% 
+Climate_Dt %>% 
   Precip_Evt_Sep(.,interval,IntE_P) -> DtF_sep
 
 DtF_sep %>% 
@@ -167,7 +180,7 @@ Get_Press_Evt_lab=function(Dt)
     arrange(Time)%>%
     mutate(Mon=month(Time)) %>% 
     # Roll average over 24 hours
-    mutate(Press_Evt_lab=ifelse(SLP_chng.av*lag(SLP_chng.av)<=0 & lag(SLP_chng.av)!=0,1,0)) %>% 
+    mutate(Press_Evt_lab=ifelse(Pressure_chng.spl*lag(Pressure_chng.spl)<=0 & lag(Pressure_chng.spl)!=0,1,0)) %>% 
     mutate(Press_Evt_lab=ifelse(is.na(Press_Evt_lab),0,Press_Evt_lab)) %>% 
     mutate(Press_Evt_lab=cumsum(Press_Evt_lab)) %>% 
     return
@@ -179,19 +192,19 @@ Get_Press_Evt=function(Dt)
     mutate(Mon=month(Time),
            Yr=year(Time)) %>% 
     group_by(Yr,Mon) %>% 
-    summarise(MonT=mean(Temp,na.rm=T))->Dt_MonT
+    summarise(MonT=mean(Temp_C,na.rm=T))->Dt_MonT
   
   Dt %>% 
     filter(Press_Evt_lab>0,
            Press_Evt_lab<max(Press_Evt_lab)) %>% 
-    group_by(Press_Evt_lab,Loc) %>% 
+    group_by(Press_Evt_lab,Location) %>% 
     summarise(St=min(Time),
               End=max(Time),
               Dur=as.numeric(max(Time)-min(Time),units='hours')+1,
-              Sum_Press_Delta=sum(SLP_chng.av),
-              Press_NA=sum(is.na(SLP)),
-              Temp_NA=sum(is.na(Temp)),
-              Sum_Precip=sum(Precip,na.rm=T),
+              Sum_Press_Delta=sum(Pressure_chng.spl),
+              Press_NA=sum(is.na(Pressure_hPa)),
+              Temp_NA=sum(is.na(Temp_C)),
+              Sum_Precip=sum(Rain,na.rm=T),
               St_Rain=sum(StR),
               St_Dry=sum(StD)) %>% 
     filter(Dur<1000) %>% #take events with more than 10000 hours as gap
