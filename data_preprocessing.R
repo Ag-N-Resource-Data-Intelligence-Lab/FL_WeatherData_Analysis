@@ -85,7 +85,7 @@ DtF_rm_zero %>%
   kable
 
 
-# fill gap and calculate lag pressure lag of 24-hour
+# fill gap, do moving average calculate lag pressure lag of 24-hour
 DtF_rm_zero %>% 
   # spline the pressure
   mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
@@ -286,3 +286,4 @@ Get_Press_Evt=function(Dt)
 DtF_sep %>% 
   Get_Press_Evt_lab(.) %>% 
   Get_Press_Evt(.) -> Raw_dt
+
