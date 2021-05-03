@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 
 #install.packages('lubridate')
 #install.packages('dplyr')
@@ -12,8 +13,25 @@ Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','data.table')
 
 Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis')
 
+=======
+Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis','ggplot2')
+>>>>>>> defcea4c1f8319f32aeff0bc4bd8a94b2f6a1fca
 lapply(Libs,library, character.only = TRUE)
 setwd('./')
+
+Plot_theme=theme_bw()+
+  theme(axis.text=element_text(size=12, 
+                               color="grey12"),
+        axis.title=element_text(size=14),
+        plot.title=element_text(size=18,
+                                face="bold"),
+        legend.position="bottom",
+        legend.title=element_text(size=14),
+        legend.text=element_text(size=14, 
+                                 color="grey12"),
+        strip.text.y = element_text(size = 12),
+        strip.text.x = element_text(size = 12),
+        axis.text.x = element_text(angle = 45, hjust = 1))
 
 # read table via dropbox link
 # test_dp <- read.csv("https://www.dropbox.com/s/10qbo3spd4r7x1s/Florida_hourly_NCDC.csv?dl=1",
@@ -97,13 +115,63 @@ DtF_rm_zero %>%
   kable
 
 
-# fill gap and calculate lag pressure lag of 24-hour
+# fill gap, do moving average calculate lag pressure lag of 24-hour
 DtF_rm_zero %>% 
   # spline the pressure
   mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
+  # moving average
+  mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
   #Change of Pressure in 24 hours
-  mutate(Pressure_chng.spl=Pressure_hPa.spl-lag(Pressure_hPa.spl,24)) %>% 
+  mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>%  
   ungroup->Climate_Dt
+
+
+# Try moving average--------------------------------------------------------------------------
+# DtF_rm_zero %>% 
+#   # spline the pressure
+#   mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
+#   # moving average
+#   mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
+#   #Change of Pressure in 24 hours
+#   mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>% 
+#   ungroup->Climate_Dt_ma
+# 
+# # plot and compare the effect of moving average
+# dry_start = ymd_hms('1996-2-1 00:00:00')
+# dry_end = ymd_hms('1996-2-8 00:00:00')
+# wet_start = ymd_hms('1996-7-21 00:00:00')
+# wet_end = ymd_hms('1996-7-28 00:00:00')
+# 
+# # No moving average
+# Climate_Dt %>% 
+#   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry
+# 
+# Climate_Dt %>% 
+#   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet
+# 
+# # moving average
+# Climate_Dt_ma %>% 
+#   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry_ma
+# 
+# Climate_Dt_ma %>% 
+#   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet_ma
+# 
+# 
+# ggplot() + 
+#   geom_line(data = Climate_Dt_dry, aes(x = Time, y = Pressure_chng.spl), color = "blue",linetype = 'Without Moving Average') + 
+#   geom_line(data = Climate_Dt_dry_ma, aes(x = Time, y = Pressure_chng.av), color = "Red",linetype = 'With Moving Average') +
+#   scale_linetype_manual(values = c('solid', 'dashed')) +
+#   scale_colour_manual(values = c('blue', 'red'))
+# #legend(legend=c("Without Moving Average", "With Moving Average"),col=c("blue", "red")) + 
+#   labs(x='Dateime',y='Pressure (hPa)') +
+#   Plot_theme
+#   
+#   
+# ggplot() + 
+#   geom_line(data = Climate_Dt_wet, aes(x = Time, y = Pressure_chng.spl), color = "blue") + 
+#   geom_line(data = Climate_Dt_wet_ma, aes(x = Time, y = Pressure_chng.av), color = "Red") +
+#   labs(x='Dateime',y='Pressure (hPa)') +
+#   Plot_theme
 
 # separate drought and rain events------------------------------------------------------------------  
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
@@ -190,7 +258,7 @@ Get_Press_Evt_lab=function(Dt)
     arrange(Time)%>%
     mutate(Mon=month(Time)) %>% 
     # Roll average over 24 hours
-    mutate(Press_Evt_lab=ifelse(Pressure_chng.spl*lag(Pressure_chng.spl)<=0 & lag(Pressure_chng.spl)!=0,1,0)) %>% 
+    mutate(Press_Evt_lab=ifelse(Pressure_chng.av*lag(Pressure_chng.av)<=0 & lag(Pressure_chng.av)!=0,1,0)) %>% 
     mutate(Press_Evt_lab=ifelse(is.na(Press_Evt_lab),0,Press_Evt_lab)) %>% 
     mutate(Press_Evt_lab=cumsum(Press_Evt_lab)) %>% 
     return
@@ -211,7 +279,7 @@ Get_Press_Evt=function(Dt)
     summarise(St=min(Time),
               End=max(Time),
               Dur=as.numeric(max(Time)-min(Time),units='hours')+1,
-              Sum_Press_Delta=sum(Pressure_chng.spl),
+              Sum_Press_Delta=sum(Pressure_chng.av),
               Press_NA=sum(is.na(Pressure_hPa)),
               Temp_NA=sum(is.na(Temp_C)),
               Sum_Precip=sum(Rain,na.rm=T),
@@ -232,6 +300,7 @@ Get_Press_Evt=function(Dt)
 DtF_sep %>% 
   Get_Press_Evt_lab(.) %>% 
   Get_Press_Evt(.) -> Raw_dt
+<<<<<<< HEAD
 #>>>>>>> 78d3b4ec4b927358a9a46bd2a05c431696671742
 
 
@@ -272,4 +341,6 @@ DtF_sep %>%
 
 
 
+=======
+>>>>>>> defcea4c1f8319f32aeff0bc4bd8a94b2f6a1fca
 
