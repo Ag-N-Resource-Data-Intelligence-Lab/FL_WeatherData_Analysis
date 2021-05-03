@@ -6,7 +6,7 @@
 #install.packages('RcppRoll')
 #install.packages('wrapr')
 #install.packages('sqldf')
-install.packages('repmis')
+#install.packages('repmis')
 library(repmis)
 Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','data.table')
 
@@ -54,8 +54,6 @@ DtF %>%
   tally %>%
   rename(Num_lag=n) %>%
   kable
-
-
 
 
 # find the time where the gap is 180 min 
@@ -120,35 +118,7 @@ Precip_Evt_Sep= function(dt,T_intv,IntE_P)
   #   Odd Evt_lab: Rain event
   #   Even Evt_lab: Dry event
 {
-  #The header of time and rain should be
-  # Time    Rain
-  
-  # dt %<>% arrange(Time)
-  # 
-  # # print out the gaps with NA Rain
-  # print('Here are all the gaps with NA rain.')
-  # dt %>% 
-  #   filter(is.na(Rain)) %>% 
-  #   arrange(Time) %>% 
-  #   mutate(lag=as.numeric(Time-lag(Time),units='mins')) %>% 
-  #   mutate(Gap_St=ifelse(lag>T_intv | is.na(lag),'Start','NA')) %>% 
-  #   mutate(Gap_End=ifelse(lead(lag)>T_intv | is.na(lead(lag)),'End','NA')) %>% 
-  #   mutate(Gap_Lab=(Gap_St=='Start')+(Gap_End=='End')) %>% 
-  #   mutate(Gap_n=(cumsum(Gap_Lab)+1) %/% 2) %>% 
-  #   group_by(Gap_n) %>% 
-  #   summarise(Start=min(Time),
-  #             End=max(Time)) %>% 
-  #   mutate(Duration_hr=as.numeric(End-Start,units='hours')) %>% 
-  #   print
-  
-  #generate rain events
-  
-  # data.frame(
-  #   Time=c(min(dt$Time)-minutes(T_intv),
-  #          max(dt$Time)+minutes(T_intv))
-  # ) %>% 
-  #   bind_rows(dt) %>% 
-  #   Regular_Time(T_intv) %>%
+
   dt %>% 
     replace_na(list(Rain=0)) %>% 
     mutate(Cum_Precip_4hr_L=roll_sum(Rain,IntE_P+1,align='left',fill=0),
@@ -192,29 +162,18 @@ DtF_sep %>%
             TotalRain=round(sum(Rain),3),
             Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
             Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
-<<<<<<< HEAD
+#<<<<<<< HEAD
 
   mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
   #filter(TotalPrecip_mm>0) %>%
   filter(TotalPrecip_mm == 0) %>%
-  write.table(.,'D:\\FAWN_data\\FL_WeatherData_Analysis\\drought.csv', row.names = FALSE, sep = ",")
-  
-
-
-
-
-
-
-
-
-
 
   #mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
   mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
   filter(TotalRain==0) %>%  write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
 #filter(TotalRain>0) %>%  write.table('./Rain_Evt.csv',row.names = FALSE,sep = ',')
 
-=======
+#=======
   mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
   filter(TotalRain==0) -> DtF_sep_dry
 
@@ -273,4 +232,44 @@ Get_Press_Evt=function(Dt)
 DtF_sep %>% 
   Get_Press_Evt_lab(.) %>% 
   Get_Press_Evt(.) -> Raw_dt
->>>>>>> 78d3b4ec4b927358a9a46bd2a05c431696671742
+#>>>>>>> 78d3b4ec4b927358a9a46bd2a05c431696671742
+
+
+DtF_sep %>% 
+  Get_Press_Evt_lab(.) -> t_rh_dew
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
