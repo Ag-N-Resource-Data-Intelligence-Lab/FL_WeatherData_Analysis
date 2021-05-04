@@ -645,7 +645,7 @@ ggsave(file="./Fig 8_extreme.jpg", g, width=10,height=10)
 
 # Fig.9_extreme
 
-Raw_dt_evt %>% 
+extreme_Raw_dt_evt %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta),
          MonT=as.numeric(MonT)) %>% 
   mutate(PCE_mon=month(St)) %>% #pull(Sum_Press_Delta) %>% abs %>% summary
@@ -663,16 +663,139 @@ Raw_dt_evt %>%
        x="Average Monthly Temperature (AMT) (?C)")+
   theme_Result+
   theme(strip.text.x = element_text(size = 14))
-ggsave(file="./Monthly temperature vs PCE frequency.av.jpg", width=10,height=7)
+ggsave(file="./Fig.9_extreme.jpg", width=10,height=7)
 
 
 
+# Fig.11_extreme
+
+#For DePCEs
+extreme_Raw_dt_evt %>% 
+  mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
+  mutate(RainEvt=St_Rain>0,
+         YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
+         MonT=round(MonT/0.2)*0.2) %>% 
+  filter(Sum_Press_Delta<0) %>% 
+  group_by(MonT,YrSide) %>% 
+  summarise(RainProb=sum(RainEvt,na.rm=TRUE)/n()) %>% 
+  ggplot(aes(x=MonT,y=RainProb))+
+  geom_point(size=1)+
+  stat_smooth(method='loess')+
+  facet_grid(YrSide~.)+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_continuous(breaks=seq(from=-6,to=28,by=2))+
+  ylab('Probability of Precipitation (POP)')+
+  xlab(expression(paste("Average Monthly Temperature (AMT) (",degree,"C)")))+
+  Plot_theme
+
+#For InPCEs
+extreme_Raw_dt_evt %>% 
+  mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
+  mutate(RainEvt=St_Rain>0,
+         YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
+         MonT=round(MonT/0.2)*0.2) %>% 
+  filter(Sum_Press_Delta>0) %>% 
+  group_by(MonT,YrSide) %>% 
+  summarise(RainProb=sum(RainEvt,na.rm=TRUE)/n()) %>% 
+  ggplot(aes(x=MonT,y=RainProb))+
+  geom_point(size=1)+
+  stat_smooth(method='loess')+
+  facet_grid(YrSide~.)+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_continuous(breaks=seq(from=-6,to=28,by=2))+
+  ylab('Rain Probability')+
+  xlab(expression(paste("Average Monthly Temperature (",degree,"C)")))+
+  Plot_theme
+
+# for Both DePCEs and InPCEs
+extreme_Raw_dt_evt %>% 
+  mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>%
+  mutate(RainEvt=St_Rain>0,
+         YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
+         MonT=round(MonT/0.2)*0.2, 
+         PCEType=ifelse(Sum_Press_Delta<0,"DePCE","InPCE")) %>% 
+  group_by(MonT,YrSide,PCEType) %>% 
+  summarise(RainProb=sum(RainEvt,na.rm=TRUE)/n()) %>% 
+  ggplot(aes(x=MonT,y=RainProb,color=PCEType,linetype=PCEType))+
+  geom_point(aes(shape=PCEType),size=2.5)+
+  stat_smooth(method='loess',se=F)+
+  facet_grid(YrSide~.)+
+  scale_y_continuous(labels = scales::percent)+
+  scale_x_continuous(breaks=seq(from=-6,to=28,by=2))+
+  scale_color_discrete("")+
+  scale_linetype_manual("",values=c("solid","longdash"))+
+  scale_shape_manual("",values=c(4,1))+
+  ylab('Probability of Precipitation (POP)')+
+  xlab(expression(paste("Average Monthly Temperature (AMT) (",degree,"C)")))+
+  Plot_theme+
+  theme(legend.key.width=unit(3,"line"))
+
+ggsave(file="./Fig.11_extreme.jpg", width=10,height=6)
 
 
+# Fig.12_extreme
+
+extreme_Raw_dt_evt %>% 
+  mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
+  mutate(RainEvt=St_Rain>0,
+         YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
+         Sum_Press_Delta=round(Sum_Press_Delta),
+         MonT=round(MonT/0.2)*0.2) %>% 
+  group_by(Sum_Press_Delta,MonT,YrSide) %>% 
+  summarise(RainProb=sum(RainEvt,na.rm=TRUE)/n())-> Dt_4_Locfit
+
+library(locfit)
+Locfit_Jan_Jun=locfit(RainProb~MonT+Sum_Press_Delta,data=Dt_4_Locfit %>% filter(YrSide=="Jan ~ Jun"))
+Locfit_Jul_Dec=locfit(RainProb~MonT+Sum_Press_Delta,data=Dt_4_Locfit %>% filter(YrSide=="Jul ~ Dec"))
+
+newdt=data.frame(MonT=NULL,Sum_Press_Delta=NULL)
+for (i in seq(from=6,to=30,by=0.5))
+{
+  x=data.frame(MonT=rep(i,16),Sum_Press_Delta=seq(from=-800,to=700,by=100))
+  newdt=rbind(newdt,x)
+}
+# Predict values for different locfit
+Rprob_plot=rbind(newdt %>% mutate(RainProb=predict(Locfit_Jan_Jun,newdata=newdt)) %>% mutate(YrSide="Jan ~ Jun"),
+                 newdt %>% mutate(RainProb=predict(Locfit_Jul_Dec,newdata=newdt)) %>% mutate(YrSide="Jul ~ Dec"))
+
+x=ggplot()+
+  facet_grid(YrSide~.)+
+  #geom_point(aes(color=RainProb))
+  stat_contour(data=Rprob_plot,aes(x=MonT,y=Sum_Press_Delta,z=RainProb*100,color=..level..))+
+  scale_color_continuous()
+
+library(directlabels)
+direct.label(x,list("top.points"))
+
+# Plotting
+
+p=extreme_Raw_dt_evt %>% 
+  mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
+  mutate(RainEvt=St_Rain>0,
+         YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
+         Sum_Press_Delta=round(Sum_Press_Delta/20)*20,
+         MonT=round(MonT)) %>% 
+  group_by(Sum_Press_Delta,MonT,YrSide) %>% 
+  summarise(RainProb=sum(RainEvt,na.rm=TRUE)/n()*100) %>% 
+  ggplot(aes(x=MonT,y=Sum_Press_Delta))+
+  geom_tile(aes(fill=RainProb),alpha=0.7)+
+  facet_grid(YrSide~.)+
+  scale_fill_gradient(low="tan", high="cyan3",
+                      guide=guide_colorbar(title='Probability of Precipitation (POP) (%)',barwidth = 20, barheight = 1))+
+  scale_x_continuous(breaks=seq(6,30,by=3))+
+  scale_y_continuous(breaks=seq(-800,700,by=300))+
+  stat_contour(data=Rprob_plot,aes(x=MonT,y=Sum_Press_Delta,z=RainProb*100,color=..level..),size=1,breaks=c(10,20,30,40,60,80,90,100))+
+  scale_color_gradient(low='grey34',high='tomato1')+
+  labs(y='PCE Pressure Change (EPC) (hPa)',
+       x=expression(paste("Average Monthly Temperature (AMT) (",degree,"C)")))+
+  theme_Result+
+  theme(legend.title=element_text(size=18,face='plain'),
+        strip.text.y = element_text(size = 14))
 
 
+direct.label(p, list("top.points",color='black',rot=15,cex=1.2))
 
-
+ggsave(file="./Fig.12_extreme.jpg", width=10,height=6)
 
 
 
