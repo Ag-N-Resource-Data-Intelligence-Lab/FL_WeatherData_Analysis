@@ -44,7 +44,7 @@ Location_dt=tibble(USAF=c(725090,999999,724080,999999,725030),
                    Loc=c("BOS","PHL","PHL","NYC","NYC"))
 
 Dt=NULL
-path="C:/Users/Chi Zhang/Desktop/Precipitation Code/Data"
+path="C:/Users/Chi Zhang/Desktop/PhD_Second/Precipitation Code/Data"
 for (n in list.files(path,pattern=".txt$"))
 {
   read_csv(paste(path,n,sep="/"),
@@ -385,7 +385,8 @@ Raw_dt %>%
 
 
 # PCEs and precipitation from 1994-11-1 to 1995-1-10 in BOS (Bars: precipitation records, Area: air pressure change) -------------------------------
-
+require(ggplot2)
+require(scales)
 breaks='1 month'
 Raw_dt %>% 
     filter(data.table::between(Time,ymd('1994-11-01'),ymd('1995-1-10')),
@@ -398,7 +399,7 @@ ggplot(aes(x=Time))+
     geom_area(aes(y=SLP_chng.av,fill="Air pressure change (hPa)"),alpha=0.3)+
     geom_bar(aes(y=Precip,colour="Precipitation (mm)",width=2),stat="identity")+
     geom_line(aes(y=Temp.av,color='Smoothed Temperature (?C)'),size=1)+
-    scale_x_datetime(breaks = date_breaks(breaks)) +
+    scale_x_datetime(breaks = breaks_width(width = breaks)) +
     #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
     scale_colour_manual("",values=c("black","#706C6C"))+
     scale_fill_manual(values=c("grey10"))+
