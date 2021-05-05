@@ -59,33 +59,35 @@ DtF_FAWN=read.csv('C:/Users/Chi Zhang/Desktop/PhD_Second/Precipitation Code/Flor
   mutate(Time=mdy_hm(Time)) %>% 
   rename(Rain = Pecipit_mm) 
 
-
+format(DtF_FAWN$Time,"%Y-%m-%d %H:%M:%S")
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
 
 # data clean------------------------------------------------------------------------------------------------
 DtF_FAWN %>%
-  arrange(Time) %>%
-  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  group_by(Location) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
+  ungroup() %>% 
   group_by(TimeLag_min) %>%
   tally %>%
   rename(Num_lag=n) %>%
   kable
 
-
 # find the time where the gap is 180 min 
 DtF_FAWN %>%
-  arrange(Time) %>%
+  group_by(Location) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  ungroup() %>% 
   group_by(TimeLag_min) %>%
-  filter(TimeLag_min == 120) %>%
+  filter(TimeLag_min == 120) %>% view()
   mutate(Years=year(Time)) ->df
 # tally %>%
 # rename(Num_lag=n)
 
 # find the time where the gap is larger than 60 min
 DtF_FAWN %>%
-  arrange(Time, Location) %>%
+  group_by(Location) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  ungroup() %>% 
   group_by(TimeLag_min) %>%
   filter(TimeLag_min > 60) %>%
   mutate(Years=year(Time)) -> df_gap
@@ -93,7 +95,7 @@ DtF_FAWN %>%
 # remove these timestamps from raw data
 DtF_FAWN_clean <- DtF_FAWN %>% anti_join(df)
 
-DtF_FAWN_clean %>%
+DtF_FAWN %>%
   arrange(Time) %>%
   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
   group_by(TimeLag_min) %>%
@@ -102,8 +104,16 @@ DtF_FAWN_clean %>%
   kable
 # regulate time
 interval = 60
-DtF_FAWN_clean=Regular_Time(DtF_FAWN_clean,interval)
+DtF_FAWN_clean=Regular_Time(DtF_FAWN,interval)
 
+DtF_FAWN_rm_zero %>%
+  group_by(Location) %>%
+  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>% 
+  ungroup() %>% 
+  group_by(TimeLag_min) %>%
+  tally %>%
+  rename(Num_lag=n) %>%
+  kable
 
 
 # remove 0 time interval
@@ -114,14 +124,6 @@ DtF_FAWN_clean %>%
   ungroup() -> DtF_FAWN_rm_zero
 
 #DtF_FAWN_rm_zero %>% filter(!is.na(Location)) -> DtF_FAWN_rm_zero
-
-DtF_FAWN_rm_zero %>%
-  arrange(Time) %>%
-  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
-  group_by(TimeLag_min) %>%
-  tally %>%
-  rename(Num_lag=n) %>%
-  kable
 
 
 # fill gap, do moving average calculate lag pressure lag of 24-hour
