@@ -7,7 +7,7 @@
 #install.packages('sqldf')
 #install.packages('repmis')
 
-Libs=c('lubridate','dplyr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis','data.table','magrittr','ggplot2','scales')
+Libs=c('lubridate','dplyr','purrr','tidyr','magrittr','RcppRoll','wrapr','knitr','repmis','data.table','magrittr','ggplot2','scales')
 lapply(Libs,library, character.only = TRUE)
 setwd('./')
 
@@ -158,10 +158,27 @@ DtF_FAWN=read.csv('C:/Users/pinen/Desktop/Study/PhD/Yu/T-S Precipitation/Data/Fl
 
 DtF_all_loc = bind_rows(DtF_NCDC,DtF_FAWN)
 
-DtF_all_loc %>% 
-  group_by(Location) %>% 
+DtF_NCDC %>% 
+  mutate(Loc=Location) %>% 
+  group_by(Loc) %>% 
   nest()->DtF_nest
 
+
+DtF_nest %>% 
+  mutate(Raw_dt_all = map(data, ~data_preprosessing(.x))) %>% 
+  mutate(Raw_dt_evt_all = map(Raw_dt_all, ~Get_Press_Evt(.x)))->DtF_map
+
+DtF_map %>% 
+  select(Loc,Raw_dt_all) %>% 
+  unnest(cols = c(Raw_dt_all)) %>%
+  ungroup() %>% 
+  select(-Loc)->Raw_dt_all_loc
+
+DtF_map %>% 
+  select(Loc,Raw_dt_evt_all) %>% 
+  unnest(cols = c(Raw_dt_evt_all)) %>% 
+  ungroup() %>%
+  select(-Loc)->Raw_dt_evt_all_loc
 
 DtF=read.csv('C:/Users/pinen/Desktop/Study/PhD/Yu/T-S Precipitation/Data/NCDC/Florida/Florida_hourly_NCDC.csv',
              sep=',',header=T,stringsAsFactors = F) %>%
@@ -170,195 +187,197 @@ DtF=read.csv('C:/Users/pinen/Desktop/Study/PhD/Yu/T-S Precipitation/Data/NCDC/Fl
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US')
 
 # data clean------------------------------------------------------------------------------------------------
-DtF %>%
-  arrange(Time) %>%
-  mutate(St=lag(Time)) %>% 
-  mutate(TimeLag_min=as.numeric(Time-St,units='mins')) %>% 
-  mutate(Years=year(Time))%>% 
-  rename(End=Time) %>% 
-  relocate(St,.before = End)->DtF_TimeLag 
-
+data_preprosessing = function(DtF)
+{
+  DtF %>%
+    arrange(Time) %>%
+    mutate(St=lag(Time)) %>% 
+    mutate(TimeLag_min=as.numeric(Time-St,units='mins')) %>% 
+    mutate(Years=year(Time))%>% 
+    rename(End=Time) %>% 
+    relocate(St,.before = End)->DtF_TimeLag 
+  
+    # DtF_TimeLag %>%
+    # group_by(TimeLag_min) %>% 
+    # tally %>%
+    # rename(Num_lag=n) %>%
+    # kable
+  
+  
+  
+  
+  # find the time where the gap is larger than 4 hours
   DtF_TimeLag %>%
-  group_by(TimeLag_min) %>% 
-  tally %>%
-  rename(Num_lag=n) %>%
-  kable
-
-
-
-
-# find the time where the gap is larger than 4 hours
-DtF_TimeLag %>%
-  group_by(TimeLag_min) %>%
-  filter(TimeLag_min >= 240) -> df_gap
-
-# find the time where the gap number is larger than 100, get all gaps
-DtF_TimeLag %>%
-  group_by(TimeLag_min) %>%
-  filter(TimeLag_min > 60 & TimeLag_min < 240) %>%
-  count(TimeLag_min)%>% 
-  filter(n>100) %>%
-  select(-n) %>% 
-  left_join(DtF_TimeLag) %>% 
-  relocate(TimeLag_min,.before = Years) %>% 
-  bind_rows(df_gap) %>% 
-  arrange(St)-> DtF_gap
+    group_by(TimeLag_min) %>%
+    filter(TimeLag_min >= 240) -> df_gap
   
-
-
-
-
-# regulate time
-interval = 60
-
-
-DtF %>% 
-  Regular_Time(.,interval) %>% 
-  do(pad_loc(.)) -> DtF_clean
-
-DtF_clean %>% 
-  filter(is.na(Location)== T)
+  # find the time where the gap number is larger than 100, get all gaps
+  DtF_TimeLag %>%
+    group_by(TimeLag_min) %>%
+    filter(TimeLag_min > 60 & TimeLag_min < 240) %>%
+    count(TimeLag_min)%>% 
+    filter(n>100) %>%
+    select(-n) %>% 
+    left_join(DtF_TimeLag) %>% 
+    relocate(TimeLag_min,.before = Years) %>% 
+    bind_rows(df_gap) %>% 
+    arrange(St)-> DtF_gap
+    
   
-# remove 0 time interval
-DtF_clean %>% 
-  group_by(Time,Location) %>%
-  summarise(Rain=mean(ifelse(Rain>0 & Rain<999.9,Rain,NA),na.rm=T),Pressure_hPa=mean(Pressure_hPa,na.rm=TRUE),Temp_C=mean(Temp_C,na.rm=TRUE),
-            DewPt_C=mean(DewPt_C,na.rm=TRUE),RH=mean(RH,na.rm=TRUE),Wind_SP_m_s=mean(Wind_SP_m_s,na.rm=TRUE)) %>% 
-  ungroup() -> DtF_rm_zero
-
-DtF_rm_zero %>%
-  arrange(Time) %>%
-  mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
-  group_by(TimeLag_min) %>%
-  tally %>%
-  rename(Num_lag=n) %>%
-  kable
-
-DtF_rm_zero %>% 
-  filter(is.na(Location)== T)
-
-# fill gap, do moving average calculate lag pressure lag of 24-hour
-DtF_rm_zero %>% 
-  # spline the pressure
-  mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
-  # moving average
-  mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
-  #Change of Pressure in 24 hours
-  mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>%  
-  ungroup->Climate_Dt
-
-Climate_Dt %>% 
-  filter(is.na(Location)== T)
-# Try moving average--------------------------------------------------------------------------
-# DtF_rm_zero %>% 
-#   # spline the pressure
-#   mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
-#   # moving average
-#   mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
-#   #Change of Pressure in 24 hours
-#   mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>% 
-#   ungroup->Climate_Dt_ma
-# 
-# # plot and compare the effect of moving average
-# dry_start = ymd_hms('1996-2-1 00:00:00')
-# dry_end = ymd_hms('1996-2-8 00:00:00')
-# wet_start = ymd_hms('1996-7-21 00:00:00')
-# wet_end = ymd_hms('1996-7-28 00:00:00')
-# 
-# # No moving average
-# Climate_Dt %>% 
-#   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry
-# 
-# Climate_Dt %>% 
-#   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet
-# 
-# # moving average
-# Climate_Dt_ma %>% 
-#   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry_ma
-# 
-# Climate_Dt_ma %>% 
-#   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet_ma
-# 
-# 
-# ggplot() + 
-#   geom_line(data = Climate_Dt_dry, aes(x = Time, y = Pressure_chng.spl), color = "blue",linetype = 'Without Moving Average') + 
-#   geom_line(data = Climate_Dt_dry_ma, aes(x = Time, y = Pressure_chng.av), color = "Red",linetype = 'With Moving Average') +
-#   scale_linetype_manual(values = c('solid', 'dashed')) +
-#   scale_colour_manual(values = c('blue', 'red'))
-# #legend(legend=c("Without Moving Average", "With Moving Average"),col=c("blue", "red")) + 
-#   labs(x='Dateime',y='Pressure (hPa)') +
-#   Plot_theme
-#   
-#   
-# ggplot() + 
-#   geom_line(data = Climate_Dt_wet, aes(x = Time, y = Pressure_chng.spl), color = "blue") + 
-#   geom_line(data = Climate_Dt_wet_ma, aes(x = Time, y = Pressure_chng.av), color = "Red") +
-#   labs(x='Dateime',y='Pressure (hPa)') +
-#   Plot_theme
-
-# separate drought and rain events------------------------------------------------------------------  
-
-IntE_P = 4
-# rain events
-Climate_Dt %>% 
-  Precip_Evt_Sep(.,interval,IntE_P) -> DtF_sep
-
-DtF_sep %>% 
-  select(Time,Rain,Evt_lab) %>% 
-  filter(Evt_lab>0) %>% 
-  group_by(Evt_lab) %>% 
-  summarise(Start=min(Time),
-            End=max(Time),
-            TotalRain=round(sum(Rain),3),
-            Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
-            Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
-  mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalRain>0) -> DtF_sep_rain
-
-write.table(DtF_sep_rain, './Rain_Evt.csv',row.names = FALSE,sep = ',')
+  # regulate time
+  interval = 60
   
-# drought events 
-
-DtF_sep %>%
-  select(Time,Rain,Evt_lab) %>% 
-  filter(Evt_lab>0) %>% 
-  group_by(Evt_lab) %>% 
-  summarise(Start=min(Time),
-            End=max(Time),
-            TotalRain=round(sum(Rain),3),
-            Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
-            Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
-  mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
-  filter(TotalRain==0) -> DtF_sep_dry
-
-write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
   
-
-save.image("sep_drought_rain_evt.RData")
-
-# pressure events--------------------------------------------------------------------------------------
-# convert Climate data into pressure events series
-
-DtF_sep %>% 
-  Get_Press_Evt_lab(.) -> Raw_dt
-
-Raw_dt %>% 
-  Get_Press_Evt(.) -> Raw_dt_evt
-
-# Remove events overlapped with gaps
-
-
-Raw_dt_evt_tb = data.table(Raw_dt_evt)
-DtF_gap_tb = data.table(DtF_gap)
-setkey(Raw_dt_evt_tb,St,End)
-overlap = foverlaps(DtF_gap_tb,Raw_dt_evt_tb,type="any",nomatch=0L)
-
-Raw_dt %>% 
-  anti_join(.,overlap,by='Press_Evt_lab') %>% 
-  filter(Press_Evt_lab != max(Press_Evt_lab))->Raw_dt_no_gap
-
-Raw_dt_no_gap %>% 
-  Get_Press_Evt(.) -> Raw_dt_evt_no_gap
+  DtF %>% 
+    Regular_Time(.,interval) %>% 
+    do(pad_loc(.)) -> DtF_clean
+  # 
+  # DtF_clean %>% 
+  #   filter(is.na(Location)== T)
+    
+  # remove 0 time interval
+  DtF_clean %>% 
+    group_by(Time,Location) %>%
+    summarise(Rain=mean(ifelse(Rain>0 & Rain<999.9,Rain,NA),na.rm=T),Pressure_hPa=mean(Pressure_hPa,na.rm=TRUE),Temp_C=mean(Temp_C,na.rm=TRUE),
+              DewPt_C=mean(DewPt_C,na.rm=TRUE),RH=mean(RH,na.rm=TRUE),Wind_SP_m_s=mean(Wind_SP_m_s,na.rm=TRUE)) %>% 
+    ungroup() -> DtF_rm_zero
+  
+  # DtF_rm_zero %>%
+  #   arrange(Time) %>%
+  #   mutate(TimeLag_min=as.numeric(Time-lag(Time),units='mins')) %>%
+  #   group_by(TimeLag_min) %>%
+  #   tally %>%
+  #   rename(Num_lag=n) %>%
+  #   kable
+  
+  DtF_rm_zero %>% 
+    filter(is.na(Location)== T)
+  
+  # fill gap, do moving average calculate lag pressure lag of 24-hour
+  DtF_rm_zero %>% 
+    # spline the pressure
+    mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
+    # moving average
+    mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
+    #Change of Pressure in 24 hours
+    mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>%  
+    ungroup->Climate_Dt
+  # 
+  # Climate_Dt %>% 
+  #   filter(is.na(Location)== T)
+  # Try moving average--------------------------------------------------------------------------
+  # DtF_rm_zero %>% 
+  #   # spline the pressure
+  #   mutate(Pressure_hPa.spl=spline(x=Time,y=Pressure_hPa,xout=Time)$y) %>%
+  #   # moving average
+  #   mutate(Pressure_hPa.av=roll_mean(Pressure_hPa.spl,n=24,align='center',fill=NA)) %>% 
+  #   #Change of Pressure in 24 hours
+  #   mutate(Pressure_chng.av=Pressure_hPa.av-lag(Pressure_hPa.av,24)) %>% 
+  #   ungroup->Climate_Dt_ma
+  # 
+  # # plot and compare the effect of moving average
+  # dry_start = ymd_hms('1996-2-1 00:00:00')
+  # dry_end = ymd_hms('1996-2-8 00:00:00')
+  # wet_start = ymd_hms('1996-7-21 00:00:00')
+  # wet_end = ymd_hms('1996-7-28 00:00:00')
+  # 
+  # # No moving average
+  # Climate_Dt %>% 
+  #   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry
+  # 
+  # Climate_Dt %>% 
+  #   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet
+  # 
+  # # moving average
+  # Climate_Dt_ma %>% 
+  #   filter(Time>=dry_start & Time<dry_end) -> Climate_Dt_dry_ma
+  # 
+  # Climate_Dt_ma %>% 
+  #   filter(Time>=wet_start & Time<wet_end) -> Climate_Dt_wet_ma
+  # 
+  # 
+  # ggplot() + 
+  #   geom_line(data = Climate_Dt_dry, aes(x = Time, y = Pressure_chng.spl), color = "blue",linetype = 'Without Moving Average') + 
+  #   geom_line(data = Climate_Dt_dry_ma, aes(x = Time, y = Pressure_chng.av), color = "Red",linetype = 'With Moving Average') +
+  #   scale_linetype_manual(values = c('solid', 'dashed')) +
+  #   scale_colour_manual(values = c('blue', 'red'))
+  # #legend(legend=c("Without Moving Average", "With Moving Average"),col=c("blue", "red")) + 
+  #   labs(x='Dateime',y='Pressure (hPa)') +
+  #   Plot_theme
+  #   
+  #   
+  # ggplot() + 
+  #   geom_line(data = Climate_Dt_wet, aes(x = Time, y = Pressure_chng.spl), color = "blue") + 
+  #   geom_line(data = Climate_Dt_wet_ma, aes(x = Time, y = Pressure_chng.av), color = "Red") +
+  #   labs(x='Dateime',y='Pressure (hPa)') +
+  #   Plot_theme
+  
+  # separate drought and rain events------------------------------------------------------------------  
+  
+  IntE_P = 4
+  # rain events
+  Climate_Dt %>% 
+    Precip_Evt_Sep(.,interval,IntE_P) -> DtF_sep
+  
+  DtF_sep %>% 
+    select(Time,Rain,Evt_lab) %>% 
+    filter(Evt_lab>0) %>% 
+    group_by(Evt_lab) %>% 
+    summarise(Start=min(Time),
+              End=max(Time),
+              TotalRain=round(sum(Rain),3),
+              Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
+              Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
+    mutate(PreDry_Dur_hr=lag(Dur_hr)) %>% 
+    filter(TotalRain>0) -> DtF_sep_rain
+  
+  # write.table(DtF_sep_rain, './Rain_Evt.csv',row.names = FALSE,sep = ',')
+    
+  # drought events 
+  
+  DtF_sep %>%
+    select(Time,Rain,Evt_lab) %>% 
+    filter(Evt_lab>0) %>% 
+    group_by(Evt_lab) %>% 
+    summarise(Start=min(Time),
+              End=max(Time),
+              TotalRain=round(sum(Rain),3),
+              Max_Intensity=max(Rain), # Maximium rain intensity based on time interval
+              Dur_hr=as.numeric(max(Time+minutes(60))-min(Time),units='hours')) %>% 
+    mutate(PreRain_Dur_hr=lag(Dur_hr)) %>% 
+    filter(TotalRain==0) -> DtF_sep_dry
+  
+  # write.table('./Drought_Evt.csv',row.names = FALSE,sep = ',')
+  #   
+  # 
+  # save.image("sep_drought_rain_evt.RData")
+  
+  # pressure events--------------------------------------------------------------------------------------
+  # convert Climate data into pressure events series
+  
+  DtF_sep %>% 
+    Get_Press_Evt_lab(.) -> Raw_dt
+  
+  Raw_dt %>% 
+    Get_Press_Evt(.) -> Raw_dt_evt
+  
+  # Remove events overlapped with gaps
+  
+  
+  Raw_dt_evt_tb = data.table(Raw_dt_evt)
+  DtF_gap_tb = data.table(DtF_gap)
+  setkey(Raw_dt_evt_tb,St,End)
+  overlap = foverlaps(DtF_gap_tb,Raw_dt_evt_tb,type="any",nomatch=0L)
+  
+  Raw_dt %>% 
+    anti_join(.,overlap,by='Press_Evt_lab') %>% 
+    filter(Press_Evt_lab != max(Press_Evt_lab))->Raw_dt_no_gap
+  
+  # Raw_dt_no_gap %>% 
+  #   Get_Press_Evt(.) -> Raw_dt_evt_no_gap
+  
+  return(Raw_dt_no_gap)
+}
 
 # Within a rain PCE, plot temp, rh and dew point
 
