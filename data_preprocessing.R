@@ -46,9 +46,9 @@ theme_Result= theme(panel.background = element_rect(fill = "white"),
 source('https://raw.githubusercontent.com/ZyuAFD/SWRE_General_R_Functions/master/src/Regulate%205%20min.R')
 
 # Function for padding location
-pad_loc=function(x)
+pad_loc=function(x,df)
 {
-  loc = unique(DtF$Location)
+  loc = unique(df$Location)
   x %>% 
     #pad(interval="hour") %>% 
     replace_na(list(Location=loc)) %>% 
@@ -165,8 +165,8 @@ DtF_NCDC %>%
 
 
 DtF_nest %>% 
-  mutate(Raw_dt_all = map(data, ~data_preprosessing(.x))) %>% 
-  mutate(Raw_dt_evt_all = map(Raw_dt_all, ~Get_Press_Evt(.x)))->DtF_map
+  mutate(Raw_dt_all = map(data, ~data_preprosessing(.))) %>% 
+  mutate(Raw_dt_evt_all = map(Raw_dt_all, ~Get_Press_Evt(.)))->DtF_map
 
 DtF_map %>% 
   select(Loc,Raw_dt_all) %>% 
@@ -230,7 +230,7 @@ data_preprosessing = function(DtF)
   
   DtF %>% 
     Regular_Time(.,interval) %>% 
-    do(pad_loc(.)) -> DtF_clean
+    do(pad_loc(.,DtF)) -> DtF_clean
   # 
   # DtF_clean %>% 
   #   filter(is.na(Location)== T)
