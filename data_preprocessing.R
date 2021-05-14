@@ -321,7 +321,7 @@ data_preprosessing = function(DtF)
   
   DtF_sep %>% 
     select(Time,Rain,Evt_lab) %>% 
-    filter(Evt_lab>0) %>% 
+    filter(Evt_lab>0, Evt_lab<max(Evt_lab)) %>% 
     group_by(Evt_lab) %>% 
     summarise(Start=min(Time),
               End=max(Time),
