@@ -332,7 +332,7 @@ Raw_dt_all_loc_fawn %>%
   guides(colour = guide_legend(override.aes = list(fill=NA)))+
   ylab("Value")+
   theme_Result+
-  theme(legend.text =element_text(size=16),legend.position = "bottom")
+  theme(legend.text =element_text(size=16),legend.position = "bottom") -> A
 
 # -----------------------------------------------------------
 #wet season, no rain PCE
@@ -358,7 +358,7 @@ Raw_dt_all_loc_fawn %>%
   guides(colour = guide_legend(override.aes = list(fill=NA)))+
   ylab("Value")+
   theme_Result+
-  theme(legend.text =element_text(size=16),legend.position = "bottom")
+  theme(legend.text =element_text(size=16),legend.position = "bottom") -> B
 
 #drought season, within rain PCE
 
@@ -383,7 +383,7 @@ Raw_dt_all_loc_fawn %>%
   guides(colour = guide_legend(override.aes = list(fill=NA)))+
   ylab("Value")+
   theme_Result+
-  theme(legend.text =element_text(size=16),legend.position = "bottom")
+  theme(legend.text =element_text(size=16),legend.position = "bottom") -> C
 #drought season, no rain PCE
 
 breaks='1 days'
@@ -407,8 +407,20 @@ Raw_dt_all_loc_fawn %>%
   guides(colour = guide_legend(override.aes = list(fill=NA)))+
   ylab("Value")+
   theme_Result+
-  theme(legend.text =element_text(size=16),legend.position = "bottom")
+  theme(legend.text =element_text(size=16),legend.position = "bottom") -> D
+require(gridExtra)
+ggA <- ggplotGrob(A)
+ggB <- ggplotGrob(B)
+ggC <- ggplotGrob(C)
+ggD <- ggplotGrob(D)
+maxWidth = grid::unit.pmax(ggA$widths[2:5], ggB$widths[2:5], ggC$widths[2:5], ggD$widths[2:5])
+ggA$widths[2:5] <- as.list(maxWidth)
+ggB$widths[2:5] <- as.list(maxWidth)
+ggC$widths[2:5] <- as.list(maxWidth)
+ggD$widths[2:5] <- as.list(maxWidth)
+grid.arrange(ggA, ggB, ggC, ggD, layout_matrix = rbind(c(1,2),c(3,4)))
 
+gg <- arrangeGrob(ggA, ggB, ggC, ggD, layout_matrix = rbind(c(1,2),c(3,4))) 
 
 
 # Fig.8
@@ -441,8 +453,8 @@ Raw_dt_evt_all_loc_fawn %>%
   filter(Sum_Precip>0) %>% 
   select(Sum_Press_Delta,Sum_Precip) %>% 
   ggplot(aes(x=Sum_Press_Delta))+
-  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_point(aes(y=Sum_Precip),alpha=0.2,size=0.7)+
+  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_smooth(aes(y=Sum_Precip,group = 1, color = "Local Fit Line"), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
   scale_y_log10()+
   scale_color_manual("",values=c("black"))+
