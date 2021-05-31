@@ -314,8 +314,6 @@ DtF_nest_EDI %>%
   mutate(data_processed = map(data, ~data_preprosessing(.))) %>% 
   mutate(EP = map(data_processed, ~EP_cal(.))) -> DtF_EDI_all
 
-
-
 DtF_NCDC %>% 
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
   mutate(Mon=month(Time), Day = day(Time), Yr=year(Time)) %>%
@@ -383,19 +381,6 @@ DtF_map_fawn %>%
   unnest(cols = c(Raw_dt_evt_all)) %>% 
   ungroup() %>%
   select(-Loc)->Raw_dt_evt_all_loc_fawn
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
