@@ -44,7 +44,7 @@ Location_dt=tibble(USAF=c(725090,999999,724080,999999,725030),
                    Loc=c("BOS","PHL","PHL","NYC","NYC"))
 
 Dt=NULL
-path="C:/Users/Chi Zhang/Desktop/Precipitation Code/Data"
+path="C:/Users/Chi Zhang/Desktop/PhD_Second/Precipitation Code/Data"
 for (n in list.files(path,pattern=".txt$"))
 {
   read_csv(paste(path,n,sep="/"),
