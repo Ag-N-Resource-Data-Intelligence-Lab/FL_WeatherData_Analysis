@@ -298,19 +298,6 @@ DtF_NCDC %>%
          h = hour(Time)) %>% 
   left_join(., Dt_CMI, by = c('Yr' = 'Yr', 'Mon' = 'Mon', 'Day' = 'Day', 'h' = 'h', 'Location' = 'location')) -> Dt_NCDC_CMI 
 
-
-  NCDC_CMI %>%
-    filter(data.table::between(Time,ymd('1979-01-01'),ymd('1989-01-01'))) %>%
-    select(Yr, Mon, Wk, Location, CMI) %>%
-    replace_na(list(CMI = 0)) %>%
-    group_by(Yr, Mon, Wk, Location) %>%
-    mutate_each(funs(sum)) %>%
-    mutate(year_wk = paste(Yr, Wk))
-
-
-  
-
-
 #NCDC
 Dt_NCDC_CMI %>% 
   mutate(Loc=Location) %>% 
@@ -333,11 +320,47 @@ DtF_map_ncdc %>%
 #   ungroup() %>%
 #   select(-Loc)->Raw_dt_evt_all_loc_ncdc
 
+
+
+# cumulative 
 Raw_dt_all_loc_ncdc %>% 
   filter(data.table::between(Time,ymd('1973-01-01'),ymd('2018-12-24'))) %>%
   replace_na(list(CMI = 0)) %>% 
-  group_by(Press_Evt_lab) %>% 
-  summarise(sum())
+  mutate(Yr = year(Time),
+         Wk = week(Time)) %>% 
+  select(Time, Yr, Mon, Wk, Location, CMI, Temp_C, RH, DewPt_C, Press_Evt_lab, Pressure_chng.av) %>% 
+  group_by(Yr, Mon, Wk, Location) %>%
+  summarise(Yr,
+            Mon,
+            Wk,
+            Location,
+            CMI = sum(CMI),
+            Time,
+            PCE_num = max(Press_Evt_lab) - min(Press_Evt_lab),
+            cum_Temp = sum(Temp_C)/PCE_num,
+            cum_RH = sum(RH)/PCE_num,
+            Temp_dew_diff = sum(Temp_C - DewPt_C)/PCE_num,
+            cum_Pressure_chng = sum(Pressure_chng.av)) %>% 
+            replace_na(list(cum_Temp = 0, cum_RH = 0, Temp_dew_diff = 0))-> T_RH_Diff_cum
+#mean
+Raw_dt_all_loc_ncdc %>% 
+  filter(data.table::between(Time,ymd('1973-01-01'),ymd('2018-12-24'))) %>%
+  replace_na(list(CMI = 0)) %>% 
+  mutate(Yr = year(Time),
+         Wk = week(Time)) %>% 
+  select(Time, Yr, Mon, Wk, Location, CMI, Temp_C, RH, DewPt_C, Press_Evt_lab) %>% 
+  group_by(Yr, Mon, Wk, Location) %>%
+  summarise(Yr,
+            Mon,
+            Wk,
+            Location,
+            CMI = sum(CMI),
+            Time,
+            PCE_num = max(Press_Evt_lab) - min(Press_Evt_lab),
+            mean_Temp = mean(Temp_C)/PCE_num,
+            mean_RH = mean(RH)/PCE_num,
+            Temp_dew_diff = mean(Temp_C - DewPt_C)/PCE_num) %>% 
+  replace_na(list(mean_Temp = 0, mean_RH = 0, Temp_dew_diff = 0))-> T_RH_Diff_mean
 
 
 
@@ -346,6 +369,220 @@ Raw_dt_all_loc_ncdc %>%
 
 
 
+
+#plot T_mean
+T_RH_Diff_mean %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  # mutate(wet_dry = ifelse(between(Mon,4,10), 'wet', 'dry')) %>% 
+  # filter(CMI >= 0.5 | CMI <= -0.5) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=mean_Temp))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  # geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Mean of week Temps / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+#plot T_cumulative
+T_RH_Diff_cum %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  mutate(wet_dry = ifelse(between(Mon,4,10), 'wet', 'dry')) %>%
+  # filter(CMI >= 0.5 | CMI <= -0.5) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x= cum_Temp, colour = wet_dry))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  # geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Cumulative of week Temps / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot RH_mean
+T_RH_Diff_mean %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  mutate(wet_dry = ifelse(between(Mon,4,10), 'wet', 'dry')) %>%
+  # filter(CMI >= 0.5 | CMI <= -0.5) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=mean_RH, colour = wet_dry))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  # geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Mean of week RHs / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+# plot RH_cum
+T_RH_Diff_cum %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  mutate(wet_dry = ifelse(between(Mon,4,10), 'wet', 'dry')) %>%
+  filter(Mon >= 5 | Mon <= 7, PCE_num <= 5) %>% 
+  # filter(CMI >= 0.5 | CMI <= -0.5) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=cum_RH, colour = wet_dry))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  # geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Cum of week RHs / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot diff between temp and dew point_mean
+
+T_RH_Diff_mean %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  # mutate(wet_dry = ifelse(between(Mon,4,10), 'wet', 'dry')) %>% 
+  # filter(CMI >= 0.5 | CMI <= -0.5) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=Temp_dew_diff))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  # geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Mean of week (Temp - dew point) / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+# plot diff between temp and dew point_cum
+
+T_RH_Diff_cum %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  mutate(wet_dry = ifelse(PCE_num > 2, '>2', '<2')) %>%
+  filter(CMI >= 1 | CMI <= -1) %>%
+  filter(Mon >= 2 | Mon <= 4, PCE_num <= 5) %>% 
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=Temp_dew_diff, colour = wet_dry))+
+  geom_jitter(aes(y=CMI), size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  geom_smooth(aes(y=CMI), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("CMI")+
+  xlab("Mean of week (Temp - dew point) / # PCEs")+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+# plot diff VS cum_pressure_chng with CMI in color
+
+T_RH_Diff_cum %>% 
+  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+  # mutate(wet_dry = ifelse(PCE_num > 2, '>2', '<2')) %>%
+  # filter(CMI >= 1 | CMI <= -1) %>%
+  filter(Mon >= 11 | Mon <= 4) %>%
+  select(-Time) %>% 
+  unique() %>% 
+  ggplot(aes(x=Temp_dew_diff, colour = CMI > 0, y=cum_Pressure_chng))+
+  geom_jitter(size = 0.5)+
+  #scale_colour_gradientn(colours=rainbow(4))
+  # scale_colour_gradientn(colours=rainbow(4))         
+  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  # guides(fill = guide_colorbar(barwidth = 10))+
+  geom_smooth(method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+  ylab("cum_Pressure_chng")+
+  xlab("Mean of week (Temp - dew point) / # PCEs")+
+  xlim(200,800)+
+  #scale_x_datetime(breaks = date_breaks(breaks)) +
+  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+  #scale_colour_manual("",values=c("black"))+
+  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+  #ylab("Value")+
+  theme_Result+
+  theme(legend.text =element_text(size=12),legend.position = "bottom")+
+  ggtitle('JACKSONVILLE 1973 - 2018')+
+  theme(plot.title = element_text(hjust = 0.5))
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#CMI_1
 Raw_dt_all_loc_ncdc %>% 
   filter(data.table::between(Time,ymd('1973-01-01'),ymd('2018-12-24'))) %>%
   replace_na(list(CMI = 0)) %>% 
@@ -361,16 +598,6 @@ Raw_dt_all_loc_ncdc %>%
             CMI = sum(CMI),Time,
             Rain = sum(Rain)) %>% 
   mutate(year_wk = paste(Yr, Wk)) -> Raw_all_loc_CMI
-
-# Raw_all_loc_CMI %>% 
-#   group_by(Yr, Wk) %>% 
-#   summarise(PCE_num_all = round(mean(PCE_num)),
-#             CMI_all = mean(CMI),
-#             Yr,
-#             Wk) %>% 
-#   unique(.) %>% 
-#   mutate(Yr_Wk = paste(Yr, Wk)) -> Raw_PCE_CMI_all_FL
-
 
 
 #CMI VS #pce'
@@ -402,30 +629,30 @@ Raw_all_loc_CMI %>%
 
 
 #Rain vs # PCE 
-Raw_all_loc_CMI %>% 
-  filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
-  # filter(CMI >= 3 | CMI <= -1) %>% 
-  select(-Time) %>% 
-  unique() %>% 
-  ggplot(aes(x=PCE_num))+
-  geom_point(aes(y=Rain))+
-  #scale_colour_gradientn(colours=rainbow(4))
-  # scale_colour_gradientn(colours=rainbow(4))         
-  # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
-  # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
-  # guides(fill = guide_colorbar(barwidth = 10))+
-  # geom_smooth(aes(y=CMI,group = 1, color = "Local Fit Line"), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
-  ylab("Rain")+
-  xlab("Number of PCEs within One Week")+
-  #scale_x_datetime(breaks = date_breaks(breaks)) +
-  #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
-  #scale_colour_manual("",values=c("black"))+
-  #guides(colour = guide_legend(override.aes = list(fill=NA)))+
-  #ylab("Value")+
-  theme_Result+
-  theme(legend.text =element_text(size=12),legend.position = "bottom")+
-  ggtitle('JACKSONVILLE 1973 - 2018')+
-  theme(plot.title = element_text(hjust = 0.5))
+# Raw_all_loc_CMI %>% 
+#   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
+#   # filter(CMI >= 3 | CMI <= -1) %>% 
+#   select(-Time) %>% 
+#   unique() %>% 
+#   ggplot(aes(x=PCE_num))+
+#   geom_point(aes(y=Rain))+
+#   #scale_colour_gradientn(colours=rainbow(4))
+#   # scale_colour_gradientn(colours=rainbow(4))         
+#   # stat_density_2d(aes(y=CMI,fill=(..level..*100)),geom='polygon',color="white")+
+#   # scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+#   # guides(fill = guide_colorbar(barwidth = 10))+
+#   # geom_smooth(aes(y=CMI,group = 1, color = "Local Fit Line"), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
+#   ylab("Rain")+
+#   xlab("Number of PCEs within One Week")+
+#   #scale_x_datetime(breaks = date_breaks(breaks)) +
+#   #scale_y_continuous(sec.axis = sec_axis(~., name = "Smoothed temperature (?C)"))+
+#   #scale_colour_manual("",values=c("black"))+
+#   #guides(colour = guide_legend(override.aes = list(fill=NA)))+
+#   #ylab("Value")+
+#   theme_Result+
+#   theme(legend.text =element_text(size=12),legend.position = "bottom")+
+#   ggtitle('JACKSONVILLE 1973 - 2018')+
+#   theme(plot.title = element_text(hjust = 0.5))
 
 
 
