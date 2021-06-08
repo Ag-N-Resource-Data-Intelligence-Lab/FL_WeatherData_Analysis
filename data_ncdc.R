@@ -831,16 +831,19 @@ direct.label(p, list("top.points",color='black',rot=15,cex=1.2))
 
 ggsave(file="./plot/ncdc/extreme/Fig.12_extreme_ncdc.jpg", width=10,height=6)
 
+
 # Fig 13
 
 
-Raw_dt_evt_all_loc_ncdc %>%
-  filter(Press_NA<7, Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
-  mutate(Season = as.character(cut(month(St),
-    c(2, 5, 8, 11),
-    c("Spring (MAM)", "Summer (JJA)", "Fall (SON), Winter (DJF) ")
-  ))) %>%
-  replace_na(list(Season = "Winter (DJF)")) %>%
+Raw_dt_evt_all_loc_ncdc %>% 
+  filter(Press_NA<1) %>% 
+  # mutate(Season = as.character(cut(month(St),
+  #                                  c(2, 5, 8, 11),
+  #                                  c("Spring (MAM)", "Summer (JJA)", "Fall (SON), Winter (DJF) ")
+  # ))) %>%
+  mutate(mon = month(St)) %>% 
+  mutate(Season = ifelse(between(mon,6,10), 'wet', 'dry')) %>% 
+  # replace_na(list(Season = "Winter (DJF)")) %>%
   mutate(
     Sum_Press_Delta = as.numeric(Sum_Press_Delta) %/% 30 * 30,
     #EPC_int = as.numeric(EPC_int),
@@ -881,20 +884,25 @@ Raw_dt_evt_all_loc_ncdc %>%
          -Season,
          -Sum_Precip) %>%
   group_by(MonT, Sum_Press_Delta, Season) %>%
-  summarise(
+  mutate(
     `95%` = quantile(Sum_Precip, probs = 0.95),
     `75%` = quantile(Sum_Precip, probs = 0.75),
     `50%` = quantile(Sum_Precip, probs = 0.50)
   ) %>%
+  summarise(
+    `95 Percentile` = mean(ifelse(Sum_Precip > `95%`, Sum_Precip, 0)),
+    `75 Percentile` = mean(ifelse(Sum_Precip > `75%`, Sum_Precip, 0)),
+    `50 Percentile` = mean(ifelse(Sum_Precip > `50%`, Sum_Precip, 0)) 
+  ) %>% 
   gather(Qntile, Sum_Precip, -MonT, -Sum_Press_Delta, -Season) %>%
   mutate(Sum_Press_C = as.character(cut(
     Sum_Press_Delta,
-    c(-2000, -500, 0, 500, 2000),
+    c(-2000, -300, 0, 300, 2000),
     c(
-      "-2000 hPa ~ -500 hPa",
-      "-500 hPa ~ 0 hPa",
-      "0 hPa ~ 500 hPa",
-      "500 hPa ~ 2000 hPa"
+      "-2000 hPa ~ -300 hPa",
+      "-300 hPa ~ 0 hPa",
+      "0 hPa ~ 300 hPa",
+      "300 hPa ~ 2000 hPa"
     )
   ))) -> Df4Plot
 
@@ -919,28 +927,24 @@ Df4Plot %>%
       labs(x = expression(paste(
         "Average Monthly Temperature (AMT) (", degree, "C)"
       )),
-      y = "Precipitation Depth (PD) (mm)") +
+      y = "Precipitation Depth (PD) (mm)") + 
+      geom_abline(intercept = 0, slope = 0.07, linetype="dotted")+
+      geom_text(aes(7,20),label = '7%', color = '#373638')+
+      scale_y_log10()+
       #scale_color_discrete("")+
-      scale_color_manual(
-        "",
-        breaks = c(
-          "All Season",
-          "Fall (SON)",
-          "Spring (MAM)",
-          "Summer (JJA)",
-          "Winter (DJF)"
-        ),
-        values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#D55E00")
-      ) +
-      ylim(0,150)+
+      # scale_color_manual(
+      #   "",
+      #   breaks = c(
+      #     "All Season",
+      #     "Fall (SON)",
+      #     "Spring (MAM)",
+      #     "Summer (JJA)",
+      #     "Winter (DJF)"
+      #   ),
+      #   values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#D55E00")
+      # ) +
+      # ylim(0,150)+
       Plot_theme
   }
-
-ggsave(file="\\\\swv.cae.drexel.edu\\personal\\Ziwen\\Writing\\Dissertation\\Chapter8\\images\\Seasonal Rain depth vs AMT on EPC bins.jpg", width=10,height=10)
-
-
-
-
-
 
 

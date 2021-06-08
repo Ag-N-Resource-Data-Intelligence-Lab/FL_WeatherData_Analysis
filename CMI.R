@@ -59,17 +59,7 @@ pad_loc=function(x,df)
 
 # Function for separating dry and wet events
 Precip_Evt_Sep= function(dt,T_intv,IntE_P)
-  #dt:       data of time and rain
-  #T_intv:   Time interval of the time series (mins)
-  #IntE_P:   Inter event period 
-  #           (time step based your time interval
-  #            For example: in a 5 min time interval series
-  #            a 4 hour inter event period is corresponding to
-  #            48 for IntE_P)
-  # output: 
-  #   Odd Evt_lab: Rain event
-  #   Even Evt_lab: Dry event
-{
+  {
   
   dt %>% 
     replace_na(list(Rain=0)) %>% 
@@ -273,18 +263,27 @@ data_preprosessing = function(DtF)
 }
 
 
-file_path_local="~/Dropbox (UFL)/Weather Data Analysis/2021/FL extreme weather events analysis/FL_CMI_73_18.csv"
-file_path_dropbox="https://www.dropbox.com/s/dx85e6p9eh1qzj8/FL_CMI_73_18.csv?dl=1"
+# file_path_local="~/Dropbox (UFL)/Weather Data Analysis/2021/FL extreme weather events analysis/FL_CMI_73_18.csv"
+# file_path_dropbox="https://www.dropbox.com/s/dx85e6p9eh1qzj8/FL_CMI_73_18.csv?dl=1"
+# 
+# FL_CMI = read.csv(file_path_local, header = T,stringsAsFactors = F)
+# 
+# file_path_local="~/Dropbox (UFL)/Weather Data Analysis/2021/FL extreme weather events analysis/Florida_hourly_NCDC.csv"
+# file_path_dropbox="https://www.dropbox.com/s/h81j6kh50bq69ap/Florida_hourly_NCDC.csv?dl=1"
 
-FL_CMI = read.csv(file_path_local, header = T,stringsAsFactors = F)
 
-file_path_local="~/Dropbox (UFL)/Weather Data Analysis/2021/FL extreme weather events analysis/Florida_hourly_NCDC.csv"
-file_path_dropbox="https://www.dropbox.com/s/h81j6kh50bq69ap/Florida_hourly_NCDC.csv?dl=1"
+FL_CMI = read.csv('D:/FAWN_data/FL_CMI_73_18.csv', header = T,stringsAsFactors = F)
 
-DtF_NCDC=read.csv(file_path_local,
+DtF_NCDC=read.csv('D:/FAWN_data/Florida_hourly_NCDC.csv',
                   sep=',',header=T,stringsAsFactors = F) %>%
   mutate(Time=ymd_hms(Time)) %>% 
   rename(Rain = Precip_mm)
+
+
+# DtF_NCDC=read.csv(file_path_local,
+#                   sep=',',header=T,stringsAsFactors = F) %>%
+#   mutate(Time=ymd_hms(Time)) %>% 
+#   rename(Rain = Precip_mm)
 
 # DtF_FAWN=read.csv('D:/FAWN_data/Florida_hourly_FAWN.csv',
 #                   sep=',',header=T,stringsAsFactors = F) %>%
@@ -348,7 +347,16 @@ Raw_dt_all_loc_ncdc %>%
             cum_RH = sum(RH)/PCE_num,
             Temp_dew_diff = sum(Temp_C - DewPt_C)/PCE_num,
             cum_Pressure_chng = sum(Pressure_chng.av)) %>% 
-            replace_na(list(cum_Temp = 0, cum_RH = 0, Temp_dew_diff = 0,wk_Rain=0))-> T_RH_Diff_cum
+            replace_na(list(cum_Temp = 0, cum_RH = 0, Temp_dew_diff = 0,wk_Rain=0)) -> T_RH_Diff_cum
+            # mutate(CMI_stand = (CMI - mean(CMI,na.rm = TRUE))/sd(CMI, na.rm = TRUE))
+
+T_RH_Diff_cum$CMI_standarize = scale(T_RH_Diff_cum$CMI)
+# T_RH_Diff_cum$CMI_pre_standarize = scale(T_RH_Diff_cum$CMI_pre)
+
+T_RH_Diff_cum %>% 
+  filter(CMI_standarize < -1) -> T_RH_Diff_cum_exclude
+
+
 
 #hide -------
 #mean
@@ -550,13 +558,13 @@ T_RH_Diff_cum %>%
 
 # plot diff VS cum_pressure_chng with CMI in color--------
 
-T_RH_Diff_cum %>% 
+T_RH_Diff_cum_exclude %>% 
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
-   mutate(wet_dry = ifelse(between(Mon,6,10), 'wet', 'dry')) %>%
+  mutate(wet_dry = ifelse(between(Mon,6,10), 'wet', 'dry')) %>%
   # filter(CMI >= 1 | CMI <= -1) %>%
   #filter(Mon >= 11 | Mon <= 4) %>%
-  filter(wk_Rain<10) %>% 
-  ggplot(aes(x=Temp_dew_diff, colour = wet_dry, y=cum_Pressure_chng))+
+  # filter(wk_Rain<10) %>% 
+  ggplot(aes(x=Temp_dew_diff, colour = wet_dry, y=CMI_standarize))+
   geom_jitter(size = 0.5)+
   #scale_colour_gradientn(colours=rainbow(4))
   # scale_colour_gradientn(colours=rainbow(4))         
@@ -578,27 +586,26 @@ T_RH_Diff_cum %>%
   theme(plot.title = element_text(hjust = 0.5))
 
 
-T_RH_Diff_cum %>% 
+T_RH_Diff_cum_exclude %>% 
   filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>%
-  filter(abs(CMI)>2.5,
-         log(Temp_dew_diff)>5,
+  filter(log(Temp_dew_diff)>5,
          CMI_pre<=0) %>% 
-  ggplot(aes(x=CMI,y=cum_Pressure_chng,color=cum_Pressure_chng>0))+
+  ggplot(aes(x=CMI_standarize,y=cum_Pressure_chng,color=cum_Pressure_chng>0))+
   geom_jitter(aes(size=CMI_pre))+
   geom_smooth(method = "loess", size = 1.5, linetype = 5, se = FALSE)
   
 
   
-  T_RH_Diff_cum %>% 
+T_RH_Diff_cum_exclude %>% 
     filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>%
     filter(Temp_dew_diff>20) %>% 
   ggplot(aes(x=factor(Mon),y=Temp_dew_diff))+
     geom_boxplot()
   
-  T_RH_Diff_cum %>% 
+T_RH_Diff_cum_exclude %>% 
     filter(Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>%
     #filter(Temp_dew_diff>20) %>% 
-    ggplot(aes(x=factor(Mon),y=CMI))+
+    ggplot(aes(x=factor(Mon),y=CMI_standarize))+
     geom_boxplot()+
     labs(title="CMI")
 

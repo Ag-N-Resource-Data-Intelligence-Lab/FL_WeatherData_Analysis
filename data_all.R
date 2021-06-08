@@ -279,33 +279,38 @@ DtF_NCDC=read.csv('D:/FAWN_data/Florida_hourly_NCDC.csv',
   mutate(Time=ymd_hms(Time)) %>% 
   rename(Rain = Precip_mm)
 
-# DtF_FAWN=read.csv('D:/FAWN_data/Florida_hourly_FAWN.csv',
-#                   sep=',',header=T,stringsAsFactors = F) %>%
-#   mutate(Time=ymd_hms(Time)) %>% 
-#   rename(Rain = Pecipit_mm)
+DtF_FAWN=read.csv('D:/FAWN_data/Florida_hourly_FAWN.csv',
+                  sep=',',header=T,stringsAsFactors = F) %>%
+  mutate(Time=ymd_hms(Time)) %>%
+  rename(Rain = Pecipit_mm)
+
+
+
+DtF_ALL = bind_rows(DtF_NCDC, DtF_FAWN)
+
 
 
 #NCDC
-DtF_NCDC %>% 
+DtF_ALL %>% 
   mutate(Loc=Location) %>% 
   group_by(Loc) %>% 
-  nest()->DtF_nest_ncdc
+  nest()->DtF_nest_all
 
-DtF_nest_ncdc %>% 
+DtF_nest_all %>% 
   mutate(Raw_dt_all = map(data, ~data_preprosessing(.))) %>% 
-  mutate(Raw_dt_evt_all = map(Raw_dt_all, ~Get_Press_Evt(.)))->DtF_map_ncdc
+  mutate(Raw_dt_evt_all = map(Raw_dt_all, ~Get_Press_Evt(.)))->DtF_map_all
 
-DtF_map_ncdc %>% 
+DtF_map_all %>% 
   select(Loc,Raw_dt_all) %>% 
   unnest(cols = c(Raw_dt_all)) %>%
   ungroup() %>% 
-  select(-Loc)->Raw_dt_all_loc_ncdc
+  select(-Loc)->Raw_dt_all_loc_all
 
-DtF_map_ncdc %>% 
+DtF_map_all %>% 
   select(Loc,Raw_dt_evt_all) %>% 
   unnest(cols = c(Raw_dt_evt_all)) %>% 
   ungroup() %>%
-  select(-Loc)->Raw_dt_evt_all_loc_ncdc
+  select(-Loc)->Raw_dt_evt_all_loc_all
 
 
 # plot temp, rh and dew point
@@ -313,8 +318,8 @@ DtF_map_ncdc %>%
 
 
 breaks='1 days'
-Raw_dt_all_loc_ncdc %>% 
-  filter(data.table::between(Time,ymd_hms('1992-07-06 06:00:00'),ymd_hms('1992-07-09 08:00:00')), Location == 'ORLANDO INTERNATIONAL AIRPORT, FL US') %>% 
+Raw_dt_all_loc_all %>% 
+  filter(data.table::between(Time,ymd_hms('1992-07-06 06:00:00'),ymd_hms('1992-07-09 08:00:00')),Location == 'ORLANDO INTERNATIONAL AIRPORT, FL US') %>% 
   mutate(Pressure_chng.av=as.numeric(Pressure_chng.av),
          Rain=as.numeric(Rain),
          Temp_C=as.numeric(Temp_C),
@@ -339,7 +344,7 @@ Raw_dt_all_loc_ncdc %>%
 #wet season, no rain PCE
 
 breaks='1 days'
-Raw_dt_all_loc_ncdc %>% 
+Raw_dt_all_loc_all %>% 
   filter(data.table::between(Time,ymd_hms('1995-06-30 23:00:00'),ymd_hms('1995-07-05 15:00:00')), Location == 'ORLANDO INTERNATIONAL AIRPORT, FL US') %>% 
   mutate(Pressure_chng.av=as.numeric(Pressure_chng.av),
          Rain=as.numeric(Rain),
@@ -364,7 +369,7 @@ Raw_dt_all_loc_ncdc %>%
 #drought season, within rain PCE
 
 breaks='1 days'
-Raw_dt_all_loc_ncdc %>% 
+Raw_dt_all_loc_all %>% 
   filter(data.table::between(Time,ymd_hms('2012-01-16 13:00:00'),ymd_hms('2012-01-19 05:00:00')), Location == 'OKAHUMPKA') %>% 
   mutate(Pressure_chng.av=as.numeric(Pressure_chng.av),
          Rain=as.numeric(Rain),
@@ -388,7 +393,7 @@ Raw_dt_all_loc_ncdc %>%
 #drought season, no rain PCE
 
 breaks='1 days'
-Raw_dt_all_loc_ncdc %>% 
+Raw_dt_all_loc_all %>% 
   filter(data.table::between(Time,ymd_hms('2012-01-04 16:00:00'),ymd_hms('2012-01-07 15:00:00')), Location == 'OKAHUMPKA') %>% 
   mutate(Pressure_chng.av=as.numeric(Pressure_chng.av),
          Rain=as.numeric(Rain),
@@ -417,7 +422,7 @@ Raw_dt_all_loc_ncdc %>%
 
 
 require(gridExtra)
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>%
   mutate(Evt_Press_chng=round(Sum_Press_Delta/20)*20,
          RainEvt=St_Rain>0) %>% 
@@ -436,23 +441,23 @@ Raw_dt_evt_all_loc_ncdc %>%
         axis.ticks.x=element_blank())->P_area
 
 
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta),
          Sum_Precip=as.numeric(Sum_Precip)) %>%
   filter(Sum_Precip>0) %>% 
   select(Sum_Press_Delta,Sum_Precip) %>% 
   ggplot(aes(x=Sum_Press_Delta))+
-  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_point(aes(y=Sum_Precip),alpha=0.2,size=0.7)+
+  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_smooth(aes(y=Sum_Precip,group = 1, color = "Local Fit Line"), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
   scale_y_log10()+
   scale_color_manual("",values=c("black"))+
   #scale_alpha_continuous("Density %")+
-  scale_fill_gradient("Density %",low=alpha("#6e6d6d", 0.3),high=alpha("#242323",0.3))+
+  scale_fill_gradient("Density %",low=alpha("#CCCCCC", 0.3),high=alpha("#5C5A5A",0.3))+
   guides(fill = guide_colorbar(barwidth = 10))+
   ylab('Precipitation Depth (PD) (mm) in log scale')+
   xlab('Event Pressure Change (EPC) (hPa)')+
-  xlim(-900,900)+
+  xlim(-1182,1071)+
   theme_Result -> P_den
 
 
@@ -464,13 +469,13 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave(file="./plot/PCE vs Rain Prob and Depth_ncdc.jpg", g, width=10,height=10)
+ggsave(file="./plot/all/Fig 8.jpg", g, width=10,height=10)
 
 
 #Fig 9
 # Monthly temperature vs PCE frequency--------------------
 
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta),
          MonT=as.numeric(MonT)) %>% 
   mutate(PCE_mon=month(St)) %>% #pull(Sum_Press_Delta) %>% abs %>% summary
@@ -487,14 +492,15 @@ Raw_dt_evt_all_loc_ncdc %>%
   labs(y="Monthly Frequency of Moderate and Intensive PCEs",
        x="Average Monthly Temperature (AMT) (\u00B0C)")+
   theme_Result+
-  theme(strip.text.x = element_text(size = 14))
-ggsave(file="./plot/Monthly temperature vs PCE frequency_ncdc.jpg", width=10,height=7)
+  theme(strip.text.x = element_text(size = 14))+
+  xlim(NA, 35)
+ggsave(file="./plot/all/Monthly temperature vs PCE frequency_all.jpg", width=10,height=7)
 
 #Fig 11
 # Rain Probability of PCEs by AMT --------------------------
 
 #For DePCEs
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -513,7 +519,7 @@ Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme
 
 #For InPCEs
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -532,7 +538,7 @@ Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme
 
 # for Both DePCEs and InPCEs
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>%
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -554,7 +560,7 @@ Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme+
   theme(legend.key.width=unit(3,"line"))
 
-ggsave(file="./plot/AMT vs PCE Rain Prob facet on PCE types_ncdc.jpg", width=10,height=6)
+ggsave(file="./plot/AMT vs PCE Rain Prob facet on PCE types_all.jpg", width=10,height=6)
 
 
 #Fig 12
@@ -563,7 +569,7 @@ ggsave(file="./plot/AMT vs PCE Rain Prob facet on PCE types_ncdc.jpg", width=10,
 # Rain Probability of PCE by EPC and AMT------------------
 
 # Generate Locfit models for different half years
-Raw_dt_evt_all_loc_ncdc %>% 
+Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -597,7 +603,7 @@ direct.label(x,list("top.points"))
 
 # Plotting
 
-p=Raw_dt_evt_all_loc_ncdc %>% 
+p=Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -623,15 +629,15 @@ p=Raw_dt_evt_all_loc_ncdc %>%
 
 direct.label(p, list("top.points",color='black',rot=15,cex=1.2))
 
-ggsave(file="./plot/Fig 12_ncdc.jpg", width=10,height=6)
+ggsave(file="./plot/Fig 12_all.jpg", width=10,height=6)
 
 # 5% extreme situation (Fig 8,9,11,12)
 # Fig.8_extreme
-cut_95th <- quantile(Raw_dt_evt_all_loc_ncdc$Sum_Precip,0.95)
-Raw_dt_evt_all_loc_ncdc %>% filter(Sum_Precip>cut_95th) -> extreme_Raw_dt_evt_all_loc_ncdc
+cut_95th <- quantile(Raw_dt_evt_all_loc_all$Sum_Precip,0.95)
+Raw_dt_evt_all_loc_all %>% filter(Sum_Precip>cut_95th) -> extreme_Raw_dt_evt_all_loc_all
 
 require(gridExtra)
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>%
   mutate(Evt_Press_chng=round(Sum_Press_Delta/20)*20,
          RainEvt=St_Rain>0) %>% 
@@ -650,14 +656,14 @@ extreme_Raw_dt_evt_all_loc_ncdc %>%
         axis.ticks.x=element_blank())->P_area
 
 
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta),
          Sum_Precip=as.numeric(Sum_Precip)) %>%
   filter(Sum_Precip>0) %>% 
   select(Sum_Press_Delta,Sum_Precip) %>% 
   ggplot(aes(x=Sum_Press_Delta))+
-  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_point(aes(y=Sum_Precip),alpha=0.2,size=0.7)+
+  stat_density_2d(aes(y=Sum_Precip,fill=(..level..*100)),geom='polygon',color="white")+
   geom_smooth(aes(y=Sum_Precip,group = 1, color = "Local Fit Line"), method = "loess", size = 1.5, linetype = 5, se = FALSE)+
   scale_y_log10()+
   scale_color_manual("",values=c("black"))+
@@ -678,12 +684,12 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave(file="./plot/ncdc/extreme/Fig 8_extreme_ncdc.jpg", g, width=10,height=10)
+ggsave(file="./plot/all/extreme/Fig 8_extreme_all.jpg", g, width=10,height=10)
 
 
 # Fig.9_extreme
 
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta),
          MonT=as.numeric(MonT)) %>% 
   mutate(PCE_mon=month(St)) %>% #pull(Sum_Press_Delta) %>% abs %>% summary
@@ -700,12 +706,13 @@ extreme_Raw_dt_evt_all_loc_ncdc %>%
   labs(y="Monthly Frequency of Moderate and Intensive PCEs",
        x="Average Monthly Temperature (AMT) (?C)")+
   theme_Result+
-  theme(strip.text.x = element_text(size = 14))
-ggsave(file="./plot/ncdc/extreme/Fig 9_extreme_ncdc.jpg", width=10,height=7)
+  theme(strip.text.x = element_text(size = 14))+
+  xlim(NA, 35)
+ggsave(file="./plot/all/extreme/Fig 9_extreme_all.jpg", width=10,height=7)
 
 # Fig 11 extreme
 #For DePCEs
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -724,7 +731,7 @@ extreme_Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme
 
 #For InPCEs
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -743,7 +750,7 @@ extreme_Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme
 
 # for Both DePCEs and InPCEs
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>%
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -765,11 +772,11 @@ extreme_Raw_dt_evt_all_loc_ncdc %>%
   Plot_theme+
   theme(legend.key.width=unit(3,"line"))
 
-ggsave(file="./plot/ncdc/extreme/Fig.11_extreme_ncdc.jpg", width=10,height=6)
+ggsave(file="./plot/all/extreme/Fig.11_extreme_all.jpg", width=10,height=6)
 
 # Fig.12_extreme
 
-extreme_Raw_dt_evt_all_loc_ncdc %>% 
+extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -803,7 +810,7 @@ direct.label(x,list("top.points"))
 
 # Plotting
 
-p=extreme_Raw_dt_evt_all_loc_ncdc %>% 
+p=extreme_Raw_dt_evt_all_loc_all %>% 
   mutate(Sum_Press_Delta=as.numeric(Sum_Press_Delta)) %>% 
   mutate(RainEvt=St_Rain>0,
          YrSide=ifelse(Mon<7,"Jan ~ Jun","Jul ~ Dec"),
@@ -829,18 +836,21 @@ p=extreme_Raw_dt_evt_all_loc_ncdc %>%
 
 direct.label(p, list("top.points",color='black',rot=15,cex=1.2))
 
-ggsave(file="./plot/ncdc/extreme/Fig.12_extreme_ncdc.jpg", width=10,height=6)
+ggsave(file="./plot/all/extreme/Fig.12_extreme_all.jpg", width=10,height=6)
+
 
 # Fig 13
 
 
-Raw_dt_evt_all_loc_ncdc %>%
-  filter(Press_NA<7, Location == 'JACKSONVILLE INTERNATIONAL AIRPORT, FL US') %>% 
-  mutate(Season = as.character(cut(month(St),
-    c(2, 5, 8, 11),
-    c("Spring (MAM)", "Summer (JJA)", "Fall (SON), Winter (DJF) ")
-  ))) %>%
-  replace_na(list(Season = "Winter (DJF)")) %>%
+Raw_dt_evt_all_loc_all %>% 
+  filter(Press_NA<1) %>% 
+  # mutate(Season = as.character(cut(month(St),
+  #                                  c(2, 5, 8, 11),
+  #                                  c("Spring (MAM)", "Summer (JJA)", "Fall (SON), Winter (DJF) ")
+  # ))) %>%
+  mutate(mon = month(St)) %>% 
+  mutate(Season = ifelse(between(mon,6,10), 'wet', 'dry')) %>% 
+  # replace_na(list(Season = "Winter (DJF)")) %>%
   mutate(
     Sum_Press_Delta = as.numeric(Sum_Press_Delta) %/% 30 * 30,
     #EPC_int = as.numeric(EPC_int),
@@ -881,20 +891,25 @@ Raw_dt_evt_all_loc_ncdc %>%
          -Season,
          -Sum_Precip) %>%
   group_by(MonT, Sum_Press_Delta, Season) %>%
-  summarise(
+  mutate(
     `95%` = quantile(Sum_Precip, probs = 0.95),
     `75%` = quantile(Sum_Precip, probs = 0.75),
     `50%` = quantile(Sum_Precip, probs = 0.50)
   ) %>%
+  summarise(
+    `95 Percentile` = mean(ifelse(Sum_Precip > `95%`, Sum_Precip, 0)),
+    `75 Percentile` = mean(ifelse(Sum_Precip > `75%`, Sum_Precip, 0)),
+    `50 Percentile` = mean(ifelse(Sum_Precip > `50%`, Sum_Precip, 0)) 
+  ) %>% 
   gather(Qntile, Sum_Precip, -MonT, -Sum_Press_Delta, -Season) %>%
   mutate(Sum_Press_C = as.character(cut(
     Sum_Press_Delta,
-    c(-2000, -500, 0, 500, 2000),
+    c(-2000, -300, 0, 300, 2000),
     c(
-      "-2000 hPa ~ -500 hPa",
-      "-500 hPa ~ 0 hPa",
-      "0 hPa ~ 500 hPa",
-      "500 hPa ~ 2000 hPa"
+      "-2000 hPa ~ -300 hPa",
+      "-300 hPa ~ 0 hPa",
+      "0 hPa ~ 300 hPa",
+      "300 hPa ~ 2000 hPa"
     )
   ))) -> Df4Plot
 
@@ -919,24 +934,31 @@ Df4Plot %>%
       labs(x = expression(paste(
         "Average Monthly Temperature (AMT) (", degree, "C)"
       )),
-      y = "Precipitation Depth (PD) (mm)") +
+      y = "Precipitation Depth (PD) (mm)") + 
+      geom_abline(intercept = 0, slope = 0.07, linetype="dotted")+
+      geom_text(aes(7,20),label = '7%', color = '#373638')+
+      scale_y_log10()+
       #scale_color_discrete("")+
-      scale_color_manual(
-        "",
-        breaks = c(
-          "All Season",
-          "Fall (SON)",
-          "Spring (MAM)",
-          "Summer (JJA)",
-          "Winter (DJF)"
-        ),
-        values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#D55E00")
-      ) +
-      ylim(0,150)+
-      Plot_theme
+      # scale_color_manual(
+      #   "",
+      #   breaks = c(
+      #     "All Season",
+      #     "Fall (SON)",
+      #     "Spring (MAM)",
+      #     "Summer (JJA)",
+      #     "Winter (DJF)"
+      #   ),
+      #   values = c("#000000", "#E69F00", "#56B4E9", "#009E73", "#D55E00")
+    # ) +
+    # ylim(0,150)+
+    Plot_theme
   }
 
-ggsave(file="\\\\swv.cae.drexel.edu\\personal\\Ziwen\\Writing\\Dissertation\\Chapter8\\images\\Seasonal Rain depth vs AMT on EPC bins.jpg", width=10,height=10)
+
+
+
+
+
 
 
 
