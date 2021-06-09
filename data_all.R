@@ -453,11 +453,11 @@ Raw_dt_evt_all_loc_all %>%
   scale_y_log10()+
   scale_color_manual("",values=c("black"))+
   #scale_alpha_continuous("Density %")+
-  scale_fill_gradient("Density %",low=alpha("#CCCCCC", 0.3),high=alpha("#5C5A5A",0.3))+
+  scale_fill_gradient("Density %",low=alpha("#828282", 0.3),high=alpha("#000000",0.3))+
   guides(fill = guide_colorbar(barwidth = 10))+
   ylab('Precipitation Depth (PD) (mm) in log scale')+
   xlab('Event Pressure Change (EPC) (hPa)')+
-  xlim(-1182,1071)+
+  xlim(-1000,1000)+
   theme_Result -> P_den
 
 
@@ -469,7 +469,8 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave(file="./plot/all/Fig 8.jpg", g, width=10,height=10)
+ggsave("Fig_8.jpg",width=12,height=10,dpi=700)
+
 
 
 #Fig 9
@@ -494,7 +495,7 @@ Raw_dt_evt_all_loc_all %>%
   theme_Result+
   theme(strip.text.x = element_text(size = 14))+
   xlim(NA, 35)
-ggsave(file="./plot/all/Monthly temperature vs PCE frequency_all.jpg", width=10,height=7)
+ggsave("Fig9.jpg", width=10,height=7,dpi=700)
 
 #Fig 11
 # Rain Probability of PCEs by AMT --------------------------
@@ -901,6 +902,7 @@ Raw_dt_evt_all_loc_all %>%
     `75 Percentile` = mean(ifelse(Sum_Precip > `75%`, Sum_Precip, 0)),
     `50 Percentile` = mean(ifelse(Sum_Precip > `50%`, Sum_Precip, 0)) 
   ) %>% 
+  filter(Sum_Press_Delta < 2000 & Sum_Press_Delta >-2000) %>% 
   gather(Qntile, Sum_Precip, -MonT, -Sum_Press_Delta, -Season) %>%
   mutate(Sum_Press_C = as.character(cut(
     Sum_Press_Delta,
@@ -953,7 +955,7 @@ Df4Plot %>%
     # ylim(0,150)+
     Plot_theme
   }
-
+ggsave("Fig_13.jpg",width=10,height=10,dpi=700)
 
 
 
