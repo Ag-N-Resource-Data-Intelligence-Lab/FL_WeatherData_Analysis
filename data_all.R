@@ -434,7 +434,7 @@ Raw_dt_evt_all_loc_all %>%
   scale_y_continuous(labels = scales::percent,breaks = c(0,0.5,1))+
   ylab('POP')+
   xlab('Event Pressure Change (hPa)')+
-  xlim(-900,900)+
+  xlim(-1182,1071)+
   theme_Result +
   theme(axis.title.x=element_blank(),
         axis.text.x=element_blank(),
@@ -457,7 +457,7 @@ Raw_dt_evt_all_loc_all %>%
   guides(fill = guide_colorbar(barwidth = 10))+
   ylab('Precipitation Depth (PD) (mm) in log scale')+
   xlab('Event Pressure Change (EPC) (hPa)')+
-  xlim(-1000,1000)+
+  xlim(-1182,1071)+
   theme_Result -> P_den
 
 
@@ -469,7 +469,7 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave("Fig_8.jpg",width=12,height=10,dpi=700)
+ggsave("Fig_8.jpg", g, width=10,height=10,dpi=700)
 
 
 
