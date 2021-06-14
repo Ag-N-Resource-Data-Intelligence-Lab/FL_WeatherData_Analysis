@@ -319,8 +319,12 @@ DtF_map_all %>%
 
 
 data('Ukkel_RR')
-dates <- seq(from = as.Date('2017-06-30'), to = as.Date('2018-06-30'), by = 1)
+dates <- seq(from = as.Date('2017-06-30'), to = as.Date('2018-06-25'), by = 1)
 SPI_1 <- standardized.index(data = Ukkel_RR, agg.length = 30, index.out = dates)
+
+
+
+
 
 plot(SPI_1)
 
@@ -337,27 +341,47 @@ Raw_dt_all_loc_all %>%
   select(Time_SPI, Day_rain, Location, Yr, Mon)-> SPI_RAW_1
 
 SPI_RAW_1 %>% 
-  filter(Location =='TAMPA INTERNATIONAL AIRPORT, FL US') %>% 
-  select(Time_SPI, Day_rain)
-
-
-SPI_1 = standardized.index(data = ., agg.length = difftime(max(Time_SPI)-min(Time_SPI), units = c('days'), index.out = Time_SPI))  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-  
-SPI_RAW_1 %>% 
   group_by(Yr, Mon, Location) %>% 
-  summarise(SPI_1 = standardized.index(data = SPI_RAW_1[1:2], agg.length = 30, index.out = Time_SPI)) %>% head()
+  nest() -> spi_nest 
+
+
+
+spi_nest %>% 
+  mutate(SPI_final = map(data, ~SPI_fun(.))) %>%  head()
+
+
+
   
+SPI_fun = function(data){
+    index = data$Time_SPI
+    spi_xts = xts(data$Day_rain, order.by = as.Date(index))
+    length = max(as.Date(index)) - min(as.Date(index))
+    standardized.index(data = spi_xts, agg.length = length, index.out = index)
+    return 
+  }
+  
+  
+
+
+
+
+  
+  
+  
+  
+spi_xts = xts(SPI_RAW_1$Day_rain, order.by = SPI_RAW_1$Time_SPI) 
+
+
+
+
+
+
+
+
+SPI_1 = standardized.index(data = spi_xts, agg.length = 30, index.out = SPI_RAW_1$Time_SPI)
+  
+
+
 
 
 
@@ -370,10 +394,6 @@ SPI_RAW %>%
             t_e = max(DAY),
             ) -> SPI_RAW2
 
-SPI_RAW2 %>% 
-  left_join(., SPI_RAW, by = c('Time' = 'Time', 'Location' = 'Location')) -> SPI_DATA_pre
-
-  select(dates,Day_rain) -> SPI_data
 
 
 
