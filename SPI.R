@@ -346,53 +346,44 @@ SPI_RAW_1 %>%
 
 
 
-spi_nest %>% 
-  mutate(SPI_final = map(data, ~SPI_fun(.))) %>%  head()
+spi_a = xts(SPI_RAW_1$Day_rain, order.by = SPI_RAW_1$Time_SPI) 
 
-
-
-  
 SPI_fun = function(data){
-    index = data$Time_SPI
-    spi_xts = xts(data$Day_rain, order.by = as.Date(index))
-    length = max(as.Date(index)) - min(as.Date(index))
-    standardized.index(data = spi_xts, agg.length = length, index.out = index)
-    return 
-  }
-  
-  
+  index = as.data.table(data)$Time_SPI
+  rain = as.data.table(data)$Day_rain
+  #spi_xts = xts(rain, order.by = index)
+  dates <- seq(from = min(index), to = max(index), by = 1)
+  SPI = standardized.index(data = spi_a, agg.length = 30, index.out = dates)
+  return (data.frame(time_stamp = index(SPI), Daily_SPI = coredata(SPI)))
+}
+
+spi_nest %>% 
+  mutate(SPI_final = map(data, ~SPI_fun(.))) -> SPI_map
 
 
-
-
-  
-  
-  
-  
-spi_xts = xts(SPI_RAW_1$Day_rain, order.by = SPI_RAW_1$Time_SPI) 
-
-
-
-
-
-
-
-
-SPI_1 = standardized.index(data = spi_xts, agg.length = 30, index.out = SPI_RAW_1$Time_SPI)
+SPI_map %>% 
+  select(-data) %>% 
+  unnest(cols = c(SPI_final)) %>% 
+  ungroup() -> SPI_all
   
 
 
+  
 
-
-
-
-
-
-SPI_RAW %>% 
-  group_by(Yr, Mon, Location) %>% 
-  summarise(t_s = min(DAY),
-            t_e = max(DAY),
-            ) -> SPI_RAW2
+# 
+# dates <- seq(from = as.Date('2018-06-01'), to = as.Date('2018-06-30'), by = 1)
+# 
+# SPI_1 = standardized.index(data = spi_xts, agg.length = 30, index.out = dates)
+#   
+# 
+# fprint(as.data.table(SPI_1))
+# 
+# 
+# SPI_RAW %>% 
+#   group_by(Yr, Mon, Location) %>% 
+#   summarise(t_s = min(DAY),
+#             t_e = max(DAY),
+#             ) -> SPI_RAW2
 
 
 
