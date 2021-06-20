@@ -469,7 +469,7 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave("Fig_8.jpg", g, width=10,height=10,dpi=700)
+ggsave("Fig_8_new.jpg", g, width=10,height=10,dpi=300)
 
 
 
@@ -495,7 +495,7 @@ Raw_dt_evt_all_loc_all %>%
   theme_Result+
   theme(strip.text.x = element_text(size = 14))+
   xlim(NA, 35)
-ggsave("Fig9.jpg", width=10,height=7,dpi=700)
+ggsave("Fig9_new.jpg", width=10,height=7,dpi=300)
 
 #Fig 11
 # Rain Probability of PCEs by AMT --------------------------
@@ -898,10 +898,10 @@ Raw_dt_evt_all_loc_all %>%
     `50%` = quantile(Sum_Precip, probs = 0.50)
   ) %>%
   summarise(
-    `95 Percentile` = mean(ifelse(Sum_Precip > `95%`, Sum_Precip, 0)),
-    `75 Percentile` = mean(ifelse(Sum_Precip > `75%`, Sum_Precip, 0)),
-    `50 Percentile` = mean(ifelse(Sum_Precip > `50%`, Sum_Precip, 0)) 
-  ) %>% 
+    `95 Percentile` = mean(ifelse(Sum_Precip > `95%`, Sum_Precip, NaN),na.rm = T),
+    `75 Percentile` = mean(ifelse(Sum_Precip > `75%`, Sum_Precip, NaN),na.rm = T),
+    `50 Percentile` = mean(ifelse(Sum_Precip > `50%`, Sum_Precip, NaN),na.rm = T)
+  ) %>%
   filter(Sum_Press_Delta < 2000 & Sum_Press_Delta >-2000) %>% 
   gather(Qntile, Sum_Precip, -MonT, -Sum_Press_Delta, -Season) %>%
   mutate(Sum_Press_C = as.character(cut(
@@ -955,7 +955,7 @@ Df4Plot %>%
     # ylim(0,150)+
     Plot_theme
   }
-ggsave("Fig_13.jpg",width=10,height=10,dpi=700)
+ggsave("Fig_13_new.jpg",width=10,height=10,dpi=300)
 
 
 

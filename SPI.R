@@ -340,10 +340,11 @@ Raw_dt_all_loc_all %>%
   ungroup() %>% 
   select(Time_SPI, Day_rain, Location, Yr, Mon)-> SPI_RAW_1
 
-SPI_RAW_1 %>% 
+
+SPI_RAW_1 %>%
+  # filter(Location == 'TAMPA INTERNATIONAL AIRPORT, FL US', Yr == '1941') %>%
   group_by(Yr, Mon, Location) %>% 
   nest() -> spi_nest 
-
 
 
 spi_a = xts(SPI_RAW_1$Day_rain, order.by = SPI_RAW_1$Time_SPI) 
@@ -351,7 +352,6 @@ spi_a = xts(SPI_RAW_1$Day_rain, order.by = SPI_RAW_1$Time_SPI)
 SPI_fun = function(data){
   index = as.data.table(data)$Time_SPI
   rain = as.data.table(data)$Day_rain
-  #spi_xts = xts(rain, order.by = index)
   dates <- seq(from = min(index), to = max(index), by = 1)
   SPI = standardized.index(data = spi_a, agg.length = 30, index.out = dates)
   return (data.frame(time_stamp = index(SPI), Daily_SPI = coredata(SPI)))
@@ -370,20 +370,14 @@ SPI_map %>%
 
   
 
+
+# dates <- seq(from = as.Date('1941-01-01'), to = as.Date('1941-01-31'), by = 1)
 # 
-# dates <- seq(from = as.Date('2018-06-01'), to = as.Date('2018-06-30'), by = 1)
+# SPI_1 = standardized.index(data = spi_a, agg.length = 30, index.out = dates)
 # 
-# SPI_1 = standardized.index(data = spi_xts, agg.length = 30, index.out = dates)
-#   
 # 
 # fprint(as.data.table(SPI_1))
-# 
-# 
-# SPI_RAW %>% 
-#   group_by(Yr, Mon, Location) %>% 
-#   summarise(t_s = min(DAY),
-#             t_e = max(DAY),
-#             ) -> SPI_RAW2
+
 
 
 
