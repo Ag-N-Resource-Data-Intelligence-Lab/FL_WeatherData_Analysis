@@ -271,8 +271,21 @@ data_preprosessing = function(DtF)
   
   return(Raw_dt_no_gap)
 }
-
-
+# 
+# file_path_dropbox_NCEI="https://www.dropbox.com/s/n1x2laq05dieuj8/Florida_hourly_NCDC.csv?dl=1"
+# DtF_NCEI = read.csv(file_path_dropbox_NCEI, header = T,stringsAsFactors = F)%>%
+#   mutate(Time=ymd_hms(Time)) %>% 
+#   rename(Rain = Precip_mm)
+# 
+# 
+# file_path_dropbox_FAWN="https://www.dropbox.com/s/rjiaeqw1g0py8lq/Florida_hourly_FAWN.csv?dl=1"
+# DtF_FAWN = read.csv(file_path_dropbox_FAWN, header = T,stringsAsFactors = F)%>%
+#   mutate(Time=ymd_hms(Time)) %>%
+#   rename(Rain = Pecipit_mm)
+# 
+# 
+# 
+# DtF_ALL = bind_rows(DtF_NCEI, DtF_FAWN)
 
 DtF_NCDC=read.csv('D:/FAWN_data/Florida_hourly_NCDC.csv',
                   sep=',',header=T,stringsAsFactors = F) %>%
@@ -469,7 +482,7 @@ gB$widths[2:5] <- as.list(maxWidth)
 grid.arrange(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2)))
 
 g <- arrangeGrob(gA, gB, layout_matrix = rbind(c(1),c(2),c(2),c(2))) #generates g
-ggsave("Fig_8_new.jpg", g, width=10,height=10,dpi=300)
+ggsave("Fig_8_new.jpg", g, width=10,height=10,dpi=1500)
 
 
 
@@ -495,7 +508,7 @@ Raw_dt_evt_all_loc_all %>%
   theme_Result+
   theme(strip.text.x = element_text(size = 14))+
   xlim(NA, 35)
-ggsave("Fig9_new.jpg", width=10,height=7,dpi=300)
+ggsave("Fig9_new.jpg", width=10,height=7,dpi=1500)
 
 #Fig 11
 # Rain Probability of PCEs by AMT --------------------------
@@ -955,7 +968,7 @@ Df4Plot %>%
     # ylim(0,150)+
     Plot_theme
   }
-ggsave("Fig_13_new.jpg",width=10,height=10,dpi=300)
+ggsave("Fig_13_new.jpg",width=10,height=10,dpi=1500)
 
 
 
