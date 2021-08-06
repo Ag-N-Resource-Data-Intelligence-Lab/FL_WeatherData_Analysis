@@ -16,7 +16,7 @@ setwd('./')
 # library(devtools)
 # devtools::install_github("WillemMaetens/standaRdized")
 library(standaRdized)
-
+#TEST
 # Set theme for plotting---------------------------------------------------------------------------------
 Plot_theme=theme_bw()+
   theme(axis.text=element_text(size=12, 
